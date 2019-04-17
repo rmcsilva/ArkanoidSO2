@@ -3,6 +3,7 @@
 
 #ifndef DLL_H
 #define DLL_H
+#include "GameStructs.h"
 #include "stdafx.h"
 #endif
 
