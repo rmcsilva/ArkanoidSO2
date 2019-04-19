@@ -4,6 +4,7 @@
 #include "stdafx.h"
 
 //Login Messages
+#define LOGIN_REQUEST 0
 #define LOGIN_ACCEPTED 1
 #define LOGIN_DENIED 2
 

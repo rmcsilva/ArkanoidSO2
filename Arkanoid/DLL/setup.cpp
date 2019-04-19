@@ -41,3 +41,45 @@ ServerMessageControl* mapServersSharedMemory(HANDLE* hServerResponseMemoryMap, D
 
 	return pServerResponseMemory;
 }
+
+void createClientsRequestMutex(HANDLE* hClientRequestMutex)
+{
+	*hClientRequestMutex = CreateMutex(
+		NULL,								 // default security attributes
+		FALSE,								 // initially not owned
+		MUTEX_CLIENT_REQUEST);             // named mutex
+}
+
+void createServersResponseMutex(HANDLE* hServerResponseMutex)
+{
+	*hServerResponseMutex = CreateMutex(
+		NULL,								 // default security attributes
+		FALSE,								 // initially not owned
+		MUTEX_SERVER_RESPONSES);             // named mutex
+}
+
+void openClientsRequestSemaphores(HANDLE* hClientRequestSemaphoreItems, HANDLE* hClientRequestSemaphoreEmpty)
+{
+	*hClientRequestSemaphoreItems = OpenSemaphore(
+		SEMAPHORE_ALL_ACCESS,				 // default security attributes
+		TRUE,								 // inherit handle
+		SEMAPHORE_CLIENT_REQUEST_ITEMS);     // named semaphore
+
+	*hClientRequestSemaphoreEmpty = OpenSemaphore(
+		SEMAPHORE_ALL_ACCESS,				 // default security attributes
+		TRUE,								 // inherit handle
+		SEMAPHORE_CLIENT_REQUEST_EMPTY);     // named semaphore
+}
+
+void openServersResponseSemaphores(HANDLE* hServerResponseSemaphoreItems, HANDLE* hServerResponseSemaphoreEmpty)
+{
+	*hServerResponseSemaphoreItems = OpenSemaphore(
+		SEMAPHORE_ALL_ACCESS,				 // default security attributes
+		TRUE,								 // inherit handle
+		SEMAPHORE_SERVER_RESPONSE_ITEMS);    // named semaphore
+
+	*hServerResponseSemaphoreEmpty = OpenSemaphore(
+		SEMAPHORE_ALL_ACCESS,				 // default security attributes
+		TRUE,								 // inherit handle
+		SEMAPHORE_SERVER_RESPONSE_EMPTY);    // named semaphore
+}

@@ -27,6 +27,7 @@ extern "C" {
 	//Imported/Exported functions
 	DLL_IMP_API int test(void);
 	DLL_IMP_API int login(TCHAR* username);
+	DLL_IMP_API void sendMessage(int messageType);
 	DLL_IMP_API void logout(void);
 #ifdef __cplusplus
 }

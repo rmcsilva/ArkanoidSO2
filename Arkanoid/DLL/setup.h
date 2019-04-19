@@ -8,9 +8,18 @@
 #define DLL_IMP_API __declspec(dllimport)
 #endif
 
+//Shared Memory
 void openClientsSharedMemory(HANDLE* hClientRequestMemoryMap);
 void openServersSharedMemory(HANDLE* hServerResponseMemoryMap);
 //void setupGameSharedMemory();
+
+//Mutex
+void createClientsRequestMutex(HANDLE* hClientRequestMutex);
+void createServersResponseMutex(HANDLE* hServerResponseMutex);
+
+//Semaphore
+void openClientsRequestSemaphores(HANDLE* hClientRequestSemaphoreItems, HANDLE* hClientRequestSemaphoreEmpty);
+void openServersResponseSemaphores(HANDLE* hServerResponseSemaphoreItems, HANDLE* hServerResponseSemaphoreEmpty);
 
 #ifdef __cplusplus
 extern "C" {

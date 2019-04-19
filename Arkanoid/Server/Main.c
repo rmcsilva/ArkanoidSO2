@@ -7,19 +7,30 @@
 #include "DLL.h"
 #include "setup.h"
 
-ClientMessageControl clientRequests;
-ServerMessageControl serverResponses;
+DWORD WINAPI ClientRequests(LPVOID lpParam);
+
+HANDLE hClientRequestThread;
+DWORD dwClientRequestThreadId;
+
+ClientMessageControl* pClientRequestMemory;
+ServerMessageControl* pServerResponseMemory;
+
+HANDLE hClientRequestSemaphoreItems;
+HANDLE hClientRequestSemaphoreEmpty;
+
+HANDLE hServerResponseSemaphoreItems;
+HANDLE hServerResponseSemaphoreEmpty;
 
 int main(int argc, char* argv[])
 {
 	int currentUsers = 0;
 	Player* users;
 
+	ClientMessageControl clientRequests;
+	ServerMessageControl serverResponses;
+
 	HANDLE hClientRequestMemoryMap;
 	HANDLE hServerResponseMemoryMap;
-
-	ClientMessageControl* pClientRequestMemory;
-	ServerMessageControl* pServerResponseMemory;
 
 #ifdef UNICODE
 	_setmode(_fileno(stdin), _O_WTEXT);
@@ -40,10 +51,32 @@ int main(int argc, char* argv[])
 	pClientRequestMemory = mapClientsSharedMemory(&hClientRequestMemoryMap, sizeof(clientRequests));
 	pServerResponseMemory = mapServersSharedMemory(&hServerResponseMemoryMap, sizeof(serverResponses));
 
-	pClientRequestMemory->clientInput = 23;
-	pServerResponseMemory->clientOutput = 45;
+	//TODO: Add verification == NULL
 
-	_gettchar();
+	//TODO: Initialize struct?
+	pClientRequestMemory->clientInput = 0;
+	pClientRequestMemory->serverOutput = 0;
+	pServerResponseMemory->clientOutput = 0;
+
+	//Create Semaphores
+	createClientsRequestSemaphores(&hClientRequestSemaphoreItems, &hClientRequestSemaphoreEmpty);
+	createServersResponseSemaphores(&hServerResponseSemaphoreItems, &hServerResponseSemaphoreEmpty);
+
+	//TODO: Add verification == NULL
+
+	hClientRequestThread = CreateThread(
+		NULL,						// default security attributes
+		0,							// use default stack size  
+		ClientRequests,				// thread function name
+		NULL,						// argument to thread function 
+		0,							// use default creation flags 
+		&dwClientRequestThreadId);  // returns the thread identifier 
+
+	//TODO: Add verification == NULL
+
+	WaitForSingleObject(hClientRequestThread, INFINITE);
+
+	CloseHandle(hClientRequestThread);
 
 	UnmapViewOfFile(pClientRequestMemory);
 	UnmapViewOfFile(pServerResponseMemory);
@@ -52,4 +85,15 @@ int main(int argc, char* argv[])
 	CloseHandle(hServerResponseMemoryMap);
 }
 
-
+DWORD WINAPI ClientRequests(LPVOID lpParam)
+{
+	while (TRUE)
+	{
+		WaitForSingleObject(hClientRequestSemaphoreItems, INFINITE);
+		//TODO: Make a login function
+		int position = pClientRequestMemory->serverOutput;
+		_tprintf(TEXT("Request Type: %d\nUsername: %s\n"), pClientRequestMemory->clientMessageBuffer[position].type, pClientRequestMemory->clientMessageBuffer[position].username);
+		pClientRequestMemory->serverOutput = (position + 1) % BUFFER_SIZE;
+		ReleaseSemaphore(hClientRequestSemaphoreEmpty, 1, NULL);
+	}
+}
