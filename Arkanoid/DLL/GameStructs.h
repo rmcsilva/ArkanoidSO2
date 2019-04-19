@@ -1,6 +1,10 @@
 #pragma once
 
-#define TAM 128
+#include "resourceConstants.h"
+
+#define GAME_LOBBY 0
+#define GAME_ACTIVE 1
+#define GAME_OVER  2
 
 typedef struct Position {
 	int x;
@@ -19,7 +23,6 @@ typedef struct Barrier {
 	Position position;
 	int sizeRatio;
 	int playerID;
-	Player 
 }Barrier;
 
 typedef struct Brick {
@@ -37,9 +40,12 @@ typedef struct Player {
 	char name[TAM];
 	int score;
 	int id;
+	int inGame;
 }Player;
 
 typedef struct GameData {
+	int gameStatus;
+	int level;
 	int numPlayers;
 	Player *player;
 	Barrier *barrier;

@@ -148,13 +148,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="DLL.h" />
-    <ClInclude Include="GameStructs.h" />
+    <ClInclude Include="gameConstants.h" />
+    <ClInclude Include="gameStructs.h" />
+    <ClInclude Include="messages.h" />
+    <ClInclude Include="resourceConstants.h" />
+    <ClInclude Include="setup.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DLL.cpp" />
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="setup.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

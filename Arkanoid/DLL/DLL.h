@@ -1,11 +1,16 @@
 #pragma once
 //DLL.h
 
-#ifndef DLL_H
-#define DLL_H
-#include "GameStructs.h"
+#pragma once
+
 #include "stdafx.h"
-#endif
+#include "gameStructs.h"
+#include "gameConstants.h"
+#include "messages.h"
+#include "resourceConstants.h"
+#include "setup.h"
+
+#include <windows.h>
 
 #ifdef DLL_EXPORTS
 #define DLL_IMP_API __declspec(dllexport)
@@ -21,6 +26,8 @@ extern "C" {
 	extern DLL_IMP_API int isLocalUser;
 	//Imported/Exported functions
 	DLL_IMP_API int test(void);
+	DLL_IMP_API int login(TCHAR* username);
+	DLL_IMP_API void logout(void);
 #ifdef __cplusplus
 }
 #endif
