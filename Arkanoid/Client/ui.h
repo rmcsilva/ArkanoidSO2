@@ -8,4 +8,4 @@
 #include <fcntl.h>
 #include <stdio.h>
 
-void loginUser(TCHAR username[]);
+int loginUser(TCHAR username[]);

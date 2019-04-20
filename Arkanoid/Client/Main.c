@@ -15,9 +15,14 @@ int main(int argc, char* argv[])
 	_setmode(_fileno(stdout), _O_WTEXT);
 #endif
 
-	loginUser(username);
+	if(loginUser(username) == -1)
+	{
+		_gettchar();
+		_gettchar();
+		return -1;
+	}
 
-	receiveMessage();
+	receiveMessage(LOGIN_REQUEST);
 
 	_gettchar();
 	_gettchar();

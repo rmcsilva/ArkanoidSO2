@@ -21,6 +21,9 @@ void createServersResponseMutex(HANDLE* hServerResponseMutex);
 void openClientsRequestSemaphores(HANDLE* hClientRequestSemaphoreItems, HANDLE* hClientRequestSemaphoreEmpty);
 void openServersResponseSemaphores(HANDLE* hServerResponseSemaphoreItems, HANDLE* hServerResponseSemaphoreEmpty);
 
+//Event
+void createClientMessageCheckEvent(HANDLE* hClientMessageCheckEvent);
+
 #ifdef __cplusplus
 extern "C" {
 #endif

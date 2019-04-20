@@ -47,7 +47,7 @@ void createClientsRequestMutex(HANDLE* hClientRequestMutex)
 	*hClientRequestMutex = CreateMutex(
 		NULL,								 // default security attributes
 		FALSE,								 // initially not owned
-		MUTEX_CLIENT_REQUEST);             // named mutex
+		MUTEX_CLIENT_REQUEST);               // named mutex
 }
 
 void createServersResponseMutex(HANDLE* hServerResponseMutex)
@@ -82,4 +82,14 @@ void openServersResponseSemaphores(HANDLE* hServerResponseSemaphoreItems, HANDLE
 		SEMAPHORE_ALL_ACCESS,				 // default security attributes
 		TRUE,								 // inherit handle
 		SEMAPHORE_SERVER_RESPONSE_EMPTY);    // named semaphore
+}
+
+void createClientMessageCheckEvent(HANDLE* hClientMessageCheckEvent)
+{
+	*hClientMessageCheckEvent = CreateEvent(
+		NULL,								 // default security attributes
+		TRUE,								 // manual-reset event
+		FALSE,								 // initial state is nonsignaled
+		EVENT_CLIENT_MESSAGE_CHECK			 // object name
+	);
 }

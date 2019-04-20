@@ -25,6 +25,7 @@ HANDLE hServerResponseSemaphoreItems;
 HANDLE hServerResponseSemaphoreEmpty;
 
 int currentUsers = 0;
+int id = 0;
 int maxPlayers;
 Player* users;
 
@@ -155,12 +156,13 @@ ServerMessage userLogin(ClientMessage* clientMessage)
 	//TODO: Check if game is going, if it is increment total users in the shared memory pointer
 	if (currentUsers < maxPlayers)
 	{
-		users[currentUsers].id = currentUsers;
-		serverResponse.id = currentUsers;
+		users[currentUsers].id = id;
+		serverResponse.id = id;
 		_tcscpy_s(users[currentUsers].username, TAM, serverResponse.username);		
 		serverResponse.type = REQUEST_ACCEPTED;
 		pServerResponseMemory->numUsers++;
 		currentUsers++;
+		id++;
 	} else
 	{
 		serverResponse.id = -1;
