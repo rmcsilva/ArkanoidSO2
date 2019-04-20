@@ -8,6 +8,9 @@
 #include "setup.h"
 
 DWORD WINAPI ClientRequests(LPVOID lpParam);
+ServerMessage userLogin(ClientMessage* clientMessage);
+void sendResponse(ServerMessage serverMessage);
+void closeHandles();
 
 HANDLE hClientRequestThread;
 DWORD dwClientRequestThreadId;
@@ -21,11 +24,14 @@ HANDLE hClientRequestSemaphoreEmpty;
 HANDLE hServerResponseSemaphoreItems;
 HANDLE hServerResponseSemaphoreEmpty;
 
+int currentUsers = 0;
+int maxPlayers;
+Player* users;
+
+int gameStatus = IN_LOBBY;
+
 int main(int argc, char* argv[])
 {
-	int currentUsers = 0;
-	Player* users;
-
 	ClientMessageControl clientRequests;
 	ServerMessageControl serverResponses;
 
@@ -43,7 +49,7 @@ int main(int argc, char* argv[])
 
 	if (hClientRequestMemoryMap == NULL || hServerResponseMemoryMap == NULL)
 	{
-		_tprintf(TEXT("Error opening shared memory resources.\n"));
+		_tprintf(TEXT("Error creating shared memory resources.\n"));
 		return -1;
 	}
 
@@ -51,18 +57,25 @@ int main(int argc, char* argv[])
 	pClientRequestMemory = mapClientsSharedMemory(&hClientRequestMemoryMap, sizeof(clientRequests));
 	pServerResponseMemory = mapServersSharedMemory(&hServerResponseMemoryMap, sizeof(serverResponses));
 
-	//TODO: Add verification == NULL
-
-	//TODO: Initialize struct?
-	pClientRequestMemory->clientInput = 0;
-	pClientRequestMemory->serverOutput = 0;
-	pServerResponseMemory->clientOutput = 0;
+	if (pClientRequestMemory == NULL || pServerResponseMemory == NULL)
+	{
+		_tprintf(TEXT("Error maping shared memory.\n"));
+		return -1;
+	}
 
 	//Create Semaphores
 	createClientsRequestSemaphores(&hClientRequestSemaphoreItems, &hClientRequestSemaphoreEmpty);
 	createServersResponseSemaphores(&hServerResponseSemaphoreItems, &hServerResponseSemaphoreEmpty);
 
-	//TODO: Add verification == NULL
+	if (hClientRequestSemaphoreItems == NULL || hClientRequestSemaphoreEmpty == NULL || hServerResponseSemaphoreItems == NULL || hServerResponseSemaphoreEmpty == NULL)
+	{
+		_tprintf(TEXT("Error creating semaphores.\n"));
+		return -1;
+	}
+
+	//TODO: Read from text file to setup
+	maxPlayers = MAX_PLAYERS;
+	users = malloc(sizeof(Player) * maxPlayers);
 
 	hClientRequestThread = CreateThread(
 		NULL,						// default security attributes
@@ -74,6 +87,8 @@ int main(int argc, char* argv[])
 
 	//TODO: Add verification == NULL
 
+	//TODO: Create Game Data Shared Memory
+
 	WaitForSingleObject(hClientRequestThread, INFINITE);
 
 	CloseHandle(hClientRequestThread);
@@ -83,17 +98,84 @@ int main(int argc, char* argv[])
 
 	CloseHandle(hClientRequestMemoryMap);
 	CloseHandle(hServerResponseMemoryMap);
+
+	closeHandles();
 }
 
 DWORD WINAPI ClientRequests(LPVOID lpParam)
 {
+	//TODO: Change loop condition
 	while (TRUE)
 	{
 		WaitForSingleObject(hClientRequestSemaphoreItems, INFINITE);
-		//TODO: Make a login function
+
 		int position = pClientRequestMemory->serverOutput;
-		_tprintf(TEXT("Request Type: %d\nUsername: %s\n"), pClientRequestMemory->clientMessageBuffer[position].type, pClientRequestMemory->clientMessageBuffer[position].username);
+		ClientMessage* clientRequest = &pClientRequestMemory->clientMessageBuffer[position];
+		ServerMessage serverResponse;
+
+		switch (clientRequest->type)
+		{
+			case LOGIN_REQUEST:
+				serverResponse = userLogin(clientRequest);
+				break;
+			case LOGOUT:
+				//TODO: implement
+			default:
+				continue;
+		}
+
 		pClientRequestMemory->serverOutput = (position + 1) % BUFFER_SIZE;
 		ReleaseSemaphore(hClientRequestSemaphoreEmpty, 1, NULL);
+
+		//TODO: Put in a thread?
+		sendResponse(serverResponse);
+		_tprintf(TEXT("User ID: %d\nUsername: %s\n"), users[currentUsers-1].id, users[currentUsers-1].username);
 	}
+}
+
+void sendResponse(ServerMessage serverMessage)
+{
+	WaitForSingleObject(hServerResponseSemaphoreEmpty, INFINITE);
+	int position = pServerResponseMemory->serverInput;
+	ServerMessage* serverResponse = &pServerResponseMemory->serverMessageBuffer[position];
+
+	_tcscpy_s(serverResponse->username, TAM, serverMessage.username);
+	serverResponse->id = serverMessage.id;
+	serverResponse->type = serverMessage.type;
+
+	pServerResponseMemory->serverInput = (position + 1) % BUFFER_SIZE;
+	ReleaseSemaphore(hServerResponseSemaphoreItems, 1, NULL);
+}
+
+ServerMessage userLogin(ClientMessage* clientMessage)
+{
+	ServerMessage serverResponse;
+	_tcscpy_s(serverResponse.username, TAM, clientMessage->username);
+
+	//TODO: Check if game is going, if it is increment total users in the shared memory pointer
+	if (currentUsers < maxPlayers)
+	{
+		users[currentUsers].id = currentUsers;
+		serverResponse.id = currentUsers;
+		_tcscpy_s(users[currentUsers].username, TAM, serverResponse.username);		
+		serverResponse.type = REQUEST_ACCEPTED;
+		pServerResponseMemory->numUsers++;
+		currentUsers++;
+	} else
+	{
+		serverResponse.id = -1;
+		serverResponse.type = REQUEST_DENIED;
+	}
+
+	return serverResponse;
+}
+
+void closeHandles()
+{
+	CloseHandle(hClientRequestThread);
+
+	CloseHandle(hClientRequestSemaphoreItems);
+	CloseHandle(hClientRequestSemaphoreEmpty);
+	CloseHandle(hServerResponseSemaphoreItems);
+	CloseHandle(hServerResponseSemaphoreEmpty);
 }

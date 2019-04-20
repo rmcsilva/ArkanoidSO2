@@ -3,16 +3,17 @@
 #include "resourceConstants.h"
 #include "stdafx.h"
 
-//Login Messages
-#define LOGIN_REQUEST 0
-#define LOGIN_ACCEPTED 1
-#define LOGIN_DENIED 2
+//Server Response Messages
+#define REQUEST_ACCEPTED 0
+#define REQUEST_DENIED 1
 
 //Game Messages
+#define LOGIN_REQUEST 2
 #define MOVE_RIGHT 3
 #define MOVE_LEFT 4
 #define TOP10 5
 #define LEAVE_GAME 6
+#define LOGOUT 7
 
 typedef struct ClientMessage {
 	int type;
@@ -22,6 +23,7 @@ typedef struct ClientMessage {
 
 typedef struct ServerMessage {
 	int type;
+	int id;
 	TCHAR username[TAM];
 	TCHAR content[MAX];
 }ServerMessage;

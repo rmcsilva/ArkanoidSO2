@@ -1,5 +1,5 @@
 #pragma once
-
+#include "stdafx.h"
 #include "resourceConstants.h"
 
 #define GAME_LOBBY 0
@@ -37,7 +37,7 @@ typedef struct Gift {
 }Gift;
 
 typedef struct Player {
-	char name[TAM];
+	TCHAR username[TAM];
 	int score;
 	int id;
 	int inGame;

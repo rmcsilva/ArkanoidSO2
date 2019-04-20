@@ -9,6 +9,7 @@
 int isLocalUser = 1;
 
 TCHAR username[TAM];
+int id = -1;
 
 //Memory Map
 HANDLE hClientRequestMemoryMap;
@@ -80,20 +81,57 @@ void sendMessage(int messageType)
 {
 	WaitForSingleObject(hClientRequestSemaphoreEmpty, INFINITE);
 	WaitForSingleObject(hClientRequestMutex, INFINITE);
+
 	int position = pClientRequestMemory->clientInput;
-	pClientRequestMemory->clientMessageBuffer[position].type = messageType;
+	ClientMessage* clientRequest = &pClientRequestMemory->clientMessageBuffer[position];
+	clientRequest->type = messageType;
 	//TODO: Only copy on login then use the ID
-	_tcscpy_s(pClientRequestMemory->clientMessageBuffer[position].username, TAM, username);
+	_tcscpy_s(clientRequest->username, TAM, username);
+
 	pClientRequestMemory->clientInput = (position + 1) % BUFFER_SIZE;
 	ReleaseMutex(hClientRequestMutex);
 	ReleaseSemaphore(hClientRequestSemaphoreItems, 1, NULL);
 }
 
+int receiveMessage()
+{
+	WaitForSingleObject(hServerResponseSemaphoreItems, INFINITE);
+	WaitForSingleObject(hServerResponseMutex, INFINITE);
+
+	int position = pServerResponseMemory->clientOutput;
+	pServerResponseMemory->counter++;
+
+	ServerMessage* serverMessage = &pServerResponseMemory->serverMessageBuffer[position];
+
+	if(pServerResponseMemory->counter == pServerResponseMemory->numUsers || serverMessage->id == id)
+	{
+		_tprintf(TEXT("Server Response\nUsername: %s\nID: %d"),serverMessage->username, serverMessage->id);
+	} else
+	{
+		//TODO: Wait on event
+	}
+
+	pServerResponseMemory->clientOutput = (position + 1) % BUFFER_SIZE;
+	ReleaseMutex(hServerResponseMutex);
+	ReleaseSemaphore(hServerResponseSemaphoreEmpty, 1, NULL);
+
+	return serverMessage->type;
+}
+
 void logout()
 {
+	//TODO: Send Response To Server
 	UnmapViewOfFile(pClientRequestMemory);
 	UnmapViewOfFile(pServerResponseMemory);
 
 	CloseHandle(hClientRequestMemoryMap);
 	CloseHandle(hServerResponseMemoryMap);
+
+	CloseHandle(hClientRequestMutex);
+	CloseHandle(hServerResponseMutex);
+
+	CloseHandle(hClientRequestSemaphoreItems);
+	CloseHandle(hClientRequestSemaphoreEmpty);
+	CloseHandle(hServerResponseSemaphoreItems);
+	CloseHandle(hServerResponseSemaphoreEmpty);
 }

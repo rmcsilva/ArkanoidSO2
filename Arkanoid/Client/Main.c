@@ -17,6 +17,8 @@ int main(int argc, char* argv[])
 
 	loginUser(username);
 
+	receiveMessage();
+
 	_gettchar();
 	_gettchar();
 
