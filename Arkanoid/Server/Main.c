@@ -6,9 +6,11 @@
 
 #include "DLL.h"
 #include "setup.h"
+#include "ui.h"
 
 DWORD WINAPI ClientRequests(LPVOID lpParam);
 ServerMessage userLogin(ClientMessage* clientMessage);
+void userLogout(int userID);
 void sendResponse(ServerMessage serverMessage);
 void closeHandles();
 
@@ -28,6 +30,8 @@ int currentUsers = 0;
 int id = 0;
 int maxPlayers;
 Player* users;
+
+int keepAlive = 1;
 
 int gameStatus = IN_LOBBY;
 
@@ -78,6 +82,7 @@ int main(int argc, char* argv[])
 	maxPlayers = MAX_PLAYERS;
 	users = malloc(sizeof(Player) * maxPlayers);
 
+	//Thread to handle client requests
 	hClientRequestThread = CreateThread(
 		NULL,						// default security attributes
 		0,							// use default stack size  
@@ -86,13 +91,38 @@ int main(int argc, char* argv[])
 		0,							// use default creation flags 
 		&dwClientRequestThreadId);  // returns the thread identifier 
 
-	//TODO: Add verification == NULL
+	if(hClientRequestThread == NULL)
+	{
+		_tprintf(TEXT("Error creating client request thread.\n"));
+		return -1;
+	}
 
-	//TODO: Create Game Data Shared Memory
+	int option;
+
+	do
+	{
+		option = initialMenu();
+
+		switch (option)
+		{
+			case START_GAME:
+				//TODO: Create Game Data Shared Memory
+				break;
+			case SHOW_TOP10:
+				break;
+			case LIST_USERS:
+				break;
+			default:
+				break;
+		}
+
+	} while (option != SHUTDOWN);
+
+	keepAlive = 0;
+	//Unlocks the client request thread
+	ReleaseSemaphore(hClientRequestSemaphoreItems, 1, NULL);
 
 	WaitForSingleObject(hClientRequestThread, INFINITE);
-
-	CloseHandle(hClientRequestThread);
 
 	UnmapViewOfFile(pClientRequestMemory);
 	UnmapViewOfFile(pServerResponseMemory);
@@ -105,8 +135,7 @@ int main(int argc, char* argv[])
 
 DWORD WINAPI ClientRequests(LPVOID lpParam)
 {
-	//TODO: Change loop condition
-	while (TRUE)
+	while (keepAlive)
 	{
 		WaitForSingleObject(hClientRequestSemaphoreItems, INFINITE);
 
@@ -118,8 +147,12 @@ DWORD WINAPI ClientRequests(LPVOID lpParam)
 		{
 			case LOGIN_REQUEST:
 				serverResponse = userLogin(clientRequest);
+				sendResponse(serverResponse);
+				showResponseMessageInformation(serverResponse, clientRequest->type);
 				break;
 			case LOGOUT:
+				userLogout(clientRequest->id);
+				break;
 				//TODO: implement
 			default:
 				continue;
@@ -129,8 +162,7 @@ DWORD WINAPI ClientRequests(LPVOID lpParam)
 		ReleaseSemaphore(hClientRequestSemaphoreEmpty, 1, NULL);
 
 		//TODO: Put in a thread?
-		sendResponse(serverResponse);
-		_tprintf(TEXT("User ID: %d\nUsername: %s\n"), users[currentUsers-1].id, users[currentUsers-1].username);
+		//sendResponse(serverResponse);
 	}
 }
 
@@ -170,6 +202,27 @@ ServerMessage userLogin(ClientMessage* clientMessage)
 	}
 
 	return serverResponse;
+}
+
+void userLogout(int userID)
+{
+	for(int i = 0; i < currentUsers; i++)
+	{
+		if(users[i].id == userID)
+		{
+			_tprintf(TEXT("User %s logged out\n"), users[i].username);
+			currentUsers--;
+			for(int j = i; j < currentUsers; j++)
+			{
+				users[j].id = users[j+1].id;
+				users[j].score = users[j+1].score;
+				users[j].inGame = users[j + 1].inGame;
+				_tcscpy_s(users[j].username, TAM, users[j+1].username);
+			}
+
+			break;
+		}
+	}
 }
 
 void closeHandles()

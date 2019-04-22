@@ -8,7 +8,6 @@
 
 int main(int argc, char* argv[])
 {
-	TCHAR username[TAM];
 
 #ifdef UNICODE
 	_setmode(_fileno(stdin), _O_WTEXT);

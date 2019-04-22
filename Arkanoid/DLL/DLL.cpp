@@ -6,6 +6,7 @@
 #include "DLL.h"
 #include "setup.h"
 
+//Indicate if user is local or remote
 int isLocalUser = 1;
 
 TCHAR username[TAM];
@@ -31,12 +32,6 @@ HANDLE hServerResponseSemaphoreEmpty;
 
 //Event
 HANDLE hClientMessageCheckEvent;
-
-int test(void)
-{
-	_tprintf(TEXT("Hello\n"));
-	return 123;
-}
 
 int login(TCHAR* loginUsername)
 {
@@ -154,7 +149,8 @@ int receiveMessage(int messageType)
 
 void logout()
 {
-	//TODO: Send Response To Server
+	sendMessage(LOGOUT);
+
 	UnmapViewOfFile(pClientRequestMemory);
 	UnmapViewOfFile(pServerResponseMemory);
 

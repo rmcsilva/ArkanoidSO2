@@ -22,11 +22,9 @@
 extern "C" {
 #endif
 	//Global DLL variables
-	//Indicate if user is local or remote
-	extern DLL_IMP_API int isLocalUser;
+	extern DLL_IMP_API TCHAR username[TAM];
 	//Imported/Exported functions
-	DLL_IMP_API int test(void);
-	DLL_IMP_API int login(TCHAR* username);
+	DLL_IMP_API int login(TCHAR* loginUsername);
 	DLL_IMP_API void sendMessage(int messageType);
 	DLL_IMP_API int receiveMessage(int messageType);
 	DLL_IMP_API void logout(void);
