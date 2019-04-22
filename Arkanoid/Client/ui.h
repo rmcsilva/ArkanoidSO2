@@ -1,11 +1,8 @@
 #pragma once
-
+#include "stdafx.h"
 #include "gameStructs.h"
-#include <tchar.h>
-#include <windows.h>
-#include <tchar.h>
-#include <io.h>
-#include <fcntl.h>
-#include <stdio.h>
+
+#define CLIENT_WELCOME_MESSAGE "Welcome to Arkanoid!\n"
 
 int loginUser(TCHAR username[]);
+int initialMenu();

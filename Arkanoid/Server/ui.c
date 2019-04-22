@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "ui.h"
 #include "messages.h"
+#include "util.h"
 
 int initialMenu()
 {
@@ -46,14 +47,4 @@ void showResponseMessageInformation(ServerMessage serverMessage, int requestType
 	{
 		_tprintf(TEXT("Request Denied!\n"));
 	}
-}
-
-int readInt() {
-	int integer, end = 0;
-	TCHAR tmp;
-	while (end < 1) {
-		_tscanf_s(TEXT(" %d"), &integer, 1) == 1 ? end++ : 0;
-		_tscanf_s(TEXT("%c"), &tmp, 1);
-	}
-	return integer;
 }

@@ -97,6 +97,8 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
+	_tprintf(TEXT("%hs"), WELCOME_MESSAGE);
+
 	int option;
 
 	do

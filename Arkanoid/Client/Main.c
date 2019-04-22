@@ -17,14 +17,36 @@ int main(int argc, char* argv[])
 	if(loginUser(username) == -1)
 	{
 		_gettchar();
+		return -1;
+	}
+
+	if(receiveMessage(LOGIN_REQUEST) == REQUEST_ACCEPTED)
+	{
+		_tprintf(TEXT("Sucessufully connected to the server!\n\n"));
+	}
+	else
+	{
+		_tprintf(TEXT("Could not connect to the server...\nTry again!"));
 		_gettchar();
 		return -1;
 	}
 
-	receiveMessage(LOGIN_REQUEST);
+	int option;
 
-	_gettchar();
-	_gettchar();
+	do
+	{
+		option = initialMenu();
+
+		switch (option)
+		{
+			case TOP10:
+				//TODO: Send message requesting top 10
+				break;
+			default:
+				break;
+		}
+	}
+	while (option != LOGOUT);
 
 	logout();
 }

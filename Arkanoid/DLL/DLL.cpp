@@ -47,8 +47,9 @@ int login(TCHAR* loginUsername)
 		return -1;
 	}
 
-	_tprintf(TEXT("Client Request Memory Value: %d\n"), pClientRequestMemory->clientInput);
-	_tprintf(TEXT("Server Request Memory Value: %d\n"), pServerResponseMemory->clientOutput);
+	//Shared memory test
+	//_tprintf(TEXT("Client Request Memory Value: %d\n"), pClientRequestMemory->clientInput);
+	//_tprintf(TEXT("Server Request Memory Value: %d\n"), pServerResponseMemory->clientOutput);
 
 	createClientsRequestMutex(&hClientRequestMutex);
 	createServersResponseMutex(&hServerResponseMutex);
@@ -113,9 +114,10 @@ int receiveMessage(int messageType)
 		int position = pServerResponseMemory->clientOutput;
 		ServerMessage* serverMessage = &pServerResponseMemory->serverMessageBuffer[position];
 
+		//Only reads messages for the corresponding client
 		if (pServerResponseMemory->counter == pServerResponseMemory->numUsers || serverMessage->id == id || messageType == LOGIN_REQUEST)
 		{
-			_tprintf(TEXT("Server Response\nUsername: %s\nID: %d\n"), serverMessage->username, serverMessage->id);
+			//_tprintf(TEXT("Server Response\nUsername: %s\nID: %d\n"), serverMessage->username, serverMessage->id);
 			
 			if (messageType == LOGIN_REQUEST && _tcscmp(username, serverMessage->username) == 0)
 			{
