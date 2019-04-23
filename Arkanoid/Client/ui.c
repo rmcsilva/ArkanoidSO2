@@ -26,3 +26,26 @@ int initialMenu()
 		default: return -1;
 	}
 }
+
+void showTop10()
+{
+	TCHAR* nextToken = NULL;
+	TCHAR value[TOP10_SIZE];
+	_tcscpy_s(value, TOP10_SIZE, top10);
+	TCHAR* token = _tcstok_s(value, TEXT(";"), &nextToken);
+	int counter = 1;
+
+	while (token != NULL)
+	{
+		//Copy username
+		_tprintf(TEXT("Top %d\n"), counter);
+		_tprintf(TEXT("Username: %s\n"), token);
+		//Get score
+		token = _tcstok_s(NULL, TEXT(";"), &nextToken);
+		_tprintf(TEXT("Score: %s\n\n"), token);
+
+		token = _tcstok_s(NULL, TEXT(";"), &nextToken);
+
+		counter++;
+	}
+}

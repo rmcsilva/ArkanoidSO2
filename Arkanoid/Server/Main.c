@@ -10,6 +10,7 @@
 
 DWORD WINAPI ClientRequests(LPVOID lpParam);
 ServerMessage userLogin(ClientMessage* clientMessage);
+ServerMessage sendTop10(ClientMessage* clientMessage);
 void userLogout(int userID);
 void sendResponse(ServerMessage serverMessage);
 void closeHandles();
@@ -25,6 +26,11 @@ HANDLE hClientRequestSemaphoreEmpty;
 
 HANDLE hServerResponseSemaphoreItems;
 HANDLE hServerResponseSemaphoreEmpty;
+
+HANDLE hResgistryTop10Key;
+TCHAR top10Value[TOP10_SIZE];
+DWORD top10PlayerCount;
+TopPlayer topPlayers[MAX_TOP_PLAYERS];
 
 int currentUsers = 0;
 int id = 0;
@@ -78,6 +84,9 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
+	setupRegistryTopPlayers(&hResgistryTop10Key, top10Value, &top10PlayerCount);
+	convertStringToTopPlayers(&topPlayers, top10Value, &top10PlayerCount);
+
 	//TODO: Read from text file to setup
 	maxPlayers = MAX_PLAYERS;
 	users = malloc(sizeof(Player) * maxPlayers);
@@ -111,6 +120,7 @@ int main(int argc, char* argv[])
 				//TODO: Create Game Data Shared Memory
 				break;
 			case SHOW_TOP10:
+				showTopPlayers(topPlayers, top10PlayerCount);
 				break;
 			case LIST_USERS:
 				break;
@@ -119,6 +129,8 @@ int main(int argc, char* argv[])
 		}
 
 	} while (option != SHUTDOWN);
+
+	//TODO: Update TOP10
 
 	keepAlive = 0;
 	//Unlocks the client request thread
@@ -152,10 +164,15 @@ DWORD WINAPI ClientRequests(LPVOID lpParam)
 				sendResponse(serverResponse);
 				showResponseMessageInformation(serverResponse, clientRequest->type);
 				break;
+			case TOP10:
+				serverResponse = sendTop10(clientRequest);
+				sendResponse(serverResponse);
+				showResponseMessageInformation(serverResponse, clientRequest->type);
+				break;
 			case LOGOUT:
 				userLogout(clientRequest->id);
 				break;
-				//TODO: implement
+			//TODO: implement
 			default:
 				continue;
 		}
@@ -166,6 +183,8 @@ DWORD WINAPI ClientRequests(LPVOID lpParam)
 		//TODO: Put in a thread?
 		//sendResponse(serverResponse);
 	}
+
+	return 1;
 }
 
 void sendResponse(ServerMessage serverMessage)
@@ -175,6 +194,7 @@ void sendResponse(ServerMessage serverMessage)
 	ServerMessage* serverResponse = &pServerResponseMemory->serverMessageBuffer[position];
 
 	_tcscpy_s(serverResponse->username, TAM, serverMessage.username);
+	_tcscpy_s(serverResponse->content, TOP10_SIZE, serverMessage.content);
 	serverResponse->id = serverMessage.id;
 	serverResponse->type = serverMessage.type;
 
@@ -186,6 +206,7 @@ ServerMessage userLogin(ClientMessage* clientMessage)
 {
 	ServerMessage serverResponse;
 	_tcscpy_s(serverResponse.username, TAM, clientMessage->username);
+	_tcscpy_s(serverResponse.content, TAM, TEXT(""));
 
 	//TODO: Check if game is going, if it is increment total users in the shared memory pointer
 	if (currentUsers < maxPlayers)
@@ -202,6 +223,18 @@ ServerMessage userLogin(ClientMessage* clientMessage)
 		serverResponse.id = -1;
 		serverResponse.type = REQUEST_DENIED;
 	}
+
+	return serverResponse;
+}
+
+ServerMessage sendTop10(ClientMessage* clientMessage)
+{
+	ServerMessage serverResponse;
+
+	_tcscpy_s(serverResponse.username, TAM, clientMessage->username);
+	_tcscpy_s(serverResponse.content, TOP10_SIZE, top10Value);
+	serverResponse.id = clientMessage->id;
+	serverResponse.type = REQUEST_ACCEPTED;
 
 	return serverResponse;
 }
@@ -229,6 +262,8 @@ void userLogout(int userID)
 
 void closeHandles()
 {
+	RegCloseKey(hResgistryTop10Key);
+
 	CloseHandle(hClientRequestThread);
 
 	CloseHandle(hClientRequestSemaphoreItems);

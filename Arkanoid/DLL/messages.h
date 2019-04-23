@@ -25,7 +25,7 @@ typedef struct ServerMessage {
 	int type;
 	int id;
 	TCHAR username[TAM];
-	TCHAR content[MAX];
+	TCHAR content[TOP10_SIZE];
 }ServerMessage;
 
 typedef struct ClientMessageControl {

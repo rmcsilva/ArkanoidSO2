@@ -6,3 +6,4 @@
 
 int loginUser(TCHAR username[]);
 int initialMenu();
+void showTop10();

@@ -33,6 +33,7 @@ void showResponseMessageInformation(ServerMessage serverMessage, int requestType
 			break;
 		case TOP10:
 			_tprintf(TEXT("User requested the top10\n"));
+			break;
 		default:
 			_tprintf(TEXT("Invalid request!\n\n"));
 	}
@@ -46,5 +47,16 @@ void showResponseMessageInformation(ServerMessage serverMessage, int requestType
 	} else if (serverMessage.type == REQUEST_DENIED)
 	{
 		_tprintf(TEXT("Request Denied!\n"));
+	}
+}
+
+void showTopPlayers(TopPlayer* topPlayers, DWORD playerCount)
+{
+	_tprintf(TEXT("\nTop Players:\n"));
+
+	for(int i=0; i < (int)playerCount; i++)
+	{
+		_tprintf(TEXT("Top %d\n"), i+1);
+		_tprintf(TEXT("Username: %s\nScore: %d\n\n"), topPlayers[i].username, topPlayers[i].topScore);
 	}
 }

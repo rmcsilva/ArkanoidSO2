@@ -4,6 +4,8 @@
 #define TAM 64
 //Max Content Constant
 #define MAX 256
+//TOP10 Buffer
+#define TOP10_SIZE (MAX * 10)
 
 #define BUFFER_SIZE 50
 
@@ -24,3 +26,10 @@
 
 //Event Name
 #define EVENT_CLIENT_MESSAGE_CHECK TEXT("ARKANOID_EVENT_CLIENT_MESSAGE_CHECK")
+
+//Registry
+#define REGISTRY_TOP10_PATH TEXT("Software\\ArkanoidGame")
+#define TOP10_REGISTRY_VALUE TEXT("TOP10")
+#define TOP10_PLAYER_COUNT TEXT("TOP10PlayerCount")
+
+#define TOP10_DUMMY_VALUE TEXT("SO2;9999;XPTO;8000;Arkanoid;6666;")

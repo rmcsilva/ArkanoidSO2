@@ -12,6 +12,8 @@ int isLocalUser = 1;
 TCHAR username[TAM];
 int id = -1;
 
+TCHAR top10[TOP10_SIZE];
+
 //Memory Map
 HANDLE hClientRequestMemoryMap;
 HANDLE hServerResponseMemoryMap;
@@ -118,16 +120,32 @@ int receiveMessage(int messageType)
 		if (pServerResponseMemory->counter == pServerResponseMemory->numUsers || serverMessage->id == id || messageType == LOGIN_REQUEST)
 		{
 			//_tprintf(TEXT("Server Response\nUsername: %s\nID: %d\n"), serverMessage->username, serverMessage->id);
-			
-			if (messageType == LOGIN_REQUEST && _tcscmp(username, serverMessage->username) == 0)
+			switch (messageType)
 			{
-				id = serverMessage->id;
+				case LOGIN_REQUEST:
+					if(_tcscmp(username, serverMessage->username) == 0)
+					{
+						id = serverMessage->id;
+					} else
+					{
+						pServerResponseMemory->counter++;
+						_tprintf(TEXT("Waiting for the response: %d\n"), pServerResponseMemory->counter);
+						ReleaseMutex(hServerResponseMutex);
+						ReleaseSemaphore(hServerResponseSemaphoreItems, 1, NULL);
+						//Waits on the event until a client reads his response or the response gets ignored if its for a client that logged out
+						WaitForSingleObject(hClientMessageCheckEvent, INFINITE);
+						continue;
+					}
+					break;
+				case TOP10:
+					_tcscpy_s(top10, TOP10_SIZE, serverMessage->content);
+					break;
+			}
 
-				if(pServerResponseMemory->counter > 0)
-				{
-					pServerResponseMemory->counter = 0;
-					SetEvent(hClientMessageCheckEvent);
-				}
+			if (pServerResponseMemory->counter > 0)
+			{
+				pServerResponseMemory->counter = 0;
+				SetEvent(hClientMessageCheckEvent);
 			}
 
 			pServerResponseMemory->clientOutput = (position + 1) % BUFFER_SIZE;

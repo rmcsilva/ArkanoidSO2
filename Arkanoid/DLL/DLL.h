@@ -23,6 +23,7 @@ extern "C" {
 #endif
 	//Global DLL variables
 	extern DLL_IMP_API TCHAR username[TAM];
+	extern DLL_IMP_API TCHAR top10[TOP10_SIZE];
 	//Imported/Exported functions
 	DLL_IMP_API int login(TCHAR* loginUsername);
 	DLL_IMP_API void sendMessage(int messageType);

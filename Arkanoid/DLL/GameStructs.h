@@ -55,3 +55,8 @@ typedef struct GameData {
 	Gift *gift;
 	Ball ball;
 }GameData;
+
+typedef struct TopPlayer {
+	TCHAR username[TAM];
+	int topScore;
+}TopPlayer;

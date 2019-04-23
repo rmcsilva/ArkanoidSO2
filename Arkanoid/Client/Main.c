@@ -40,7 +40,9 @@ int main(int argc, char* argv[])
 		switch (option)
 		{
 			case TOP10:
-				//TODO: Send message requesting top 10
+				sendMessage(TOP10);
+				receiveMessage(TOP10);
+				showTop10();
 				break;
 			default:
 				break;
