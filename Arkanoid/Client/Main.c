@@ -5,6 +5,10 @@
 #include <stdio.h>
 #include "DLL.h"
 
+DWORD WINAPI GameUpdate(LPVOID lpParam);
+
+HANDLE hGameThread;
+DWORD dwGameThreadId;
 
 int main(int argc, char* argv[])
 {
@@ -28,8 +32,19 @@ int main(int argc, char* argv[])
 	{
 		_tprintf(TEXT("Could not connect to the server...\nTry again!"));
 		_gettchar();
+		logout();
 		return -1;
 	}
+
+
+	//Thread to handle the game updates
+	hGameThread = CreateThread(
+		NULL,						// default security attributes
+		0,							// use default stack size  
+		GameUpdate,					// thread function name
+		NULL,						// argument to thread function 
+		0,							// use default creation flags 
+		&dwGameThreadId);			// returns the thread identifier 
 
 	int option;
 
@@ -40,9 +55,12 @@ int main(int argc, char* argv[])
 		switch (option)
 		{
 			case TOP10:
-				sendMessage(TOP10);
-				receiveMessage(TOP10);
-				showTop10();
+				if(!inGame)
+				{
+					sendMessage(TOP10);
+					receiveMessage(TOP10);
+					showTop10();
+				}
 				break;
 			default:
 				break;
@@ -50,5 +68,27 @@ int main(int argc, char* argv[])
 	}
 	while (option != LOGOUT);
 
+	TerminateThread(hGameThread, 1);
+	WaitForSingleObject(hGameThread, INFINITE);
+
 	logout();
+}
+
+DWORD WINAPI GameUpdate(LPVOID lpParam)
+{
+
+	while (receiveBroadcast() != GAME_OVER)
+	{
+		//TODO: Update GUI
+		//Export the game memory pointer and update?
+	}
+
+	inGame = IN_LOBBY;
+
+	//Receives the top10
+	sendMessage(TOP10);
+	receiveMessage(TOP10);
+	showTop10();
+
+	return 1;
 }

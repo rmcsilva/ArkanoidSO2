@@ -1,12 +1,16 @@
+#include "stdafx.h"
+#include "gameLogic.h"
+#include "DLL.h"
+#include "setup.h"
+#include "ui.h"
+
 #include <windows.h>
 #include <tchar.h>
 #include <io.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-#include "DLL.h"
-#include "setup.h"
-#include "ui.h"
 
 DWORD WINAPI ClientRequests(LPVOID lpParam);
 ServerMessage userLogin(ClientMessage* clientMessage);
@@ -18,14 +22,20 @@ void closeHandles();
 HANDLE hClientRequestThread;
 DWORD dwClientRequestThreadId;
 
+HANDLE hGameThread;
+DWORD dwGameThreadId;
+
 ClientMessageControl* pClientRequestMemory;
 ServerMessageControl* pServerResponseMemory;
+GameData* pGameDataMemory;
 
 HANDLE hClientRequestSemaphoreItems;
 HANDLE hClientRequestSemaphoreEmpty;
 
 HANDLE hServerResponseSemaphoreItems;
 HANDLE hServerResponseSemaphoreEmpty;
+
+HANDLE hGameUpdateEvent;
 
 HANDLE hResgistryTop10Key;
 TCHAR top10Value[TOP10_SIZE];
@@ -39,15 +49,17 @@ Player* users;
 
 int keepAlive = 1;
 
-int gameStatus = IN_LOBBY;
-
 int main(int argc, char* argv[])
 {
 	ClientMessageControl clientRequests;
 	ServerMessageControl serverResponses;
+	GameData gameData;
 
 	HANDLE hClientRequestMemoryMap;
 	HANDLE hServerResponseMemoryMap;
+	HANDLE hGameDataMemoryMap;
+
+	GameVariables gameVariables;
 
 #ifdef UNICODE
 	_setmode(_fileno(stdin), _O_WTEXT);
@@ -57,8 +69,9 @@ int main(int argc, char* argv[])
 	//Setup Shared Memory
 	createClientsSharedMemory(&hClientRequestMemoryMap, sizeof(clientRequests));
 	createServersSharedMemory(&hServerResponseMemoryMap, sizeof(serverResponses));
+	createGameSharedMemory(&hGameDataMemoryMap, sizeof(GameData));
 
-	if (hClientRequestMemoryMap == NULL || hServerResponseMemoryMap == NULL)
+	if (hClientRequestMemoryMap == NULL || hServerResponseMemoryMap == NULL || hGameDataMemoryMap == NULL)
 	{
 		_tprintf(TEXT("Error creating shared memory resources.\n"));
 		return -1;
@@ -67,8 +80,9 @@ int main(int argc, char* argv[])
 	//Map Shared Memory
 	pClientRequestMemory = mapClientsSharedMemory(&hClientRequestMemoryMap, sizeof(clientRequests));
 	pServerResponseMemory = mapServersSharedMemory(&hServerResponseMemoryMap, sizeof(serverResponses));
+	pGameDataMemory = mapReadWriteGameSharedMemory(&hGameDataMemoryMap, sizeof(gameData));
 
-	if (pClientRequestMemory == NULL || pServerResponseMemory == NULL)
+	if (pClientRequestMemory == NULL || pServerResponseMemory == NULL || pServerResponseMemory == NULL)
 	{
 		_tprintf(TEXT("Error maping shared memory.\n"));
 		return -1;
@@ -84,8 +98,18 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
+	//Setup Registry and Top Players
 	setupRegistryTopPlayers(&hResgistryTop10Key, top10Value, &top10PlayerCount);
 	convertStringToTopPlayers(&topPlayers, top10Value, &top10PlayerCount);
+
+	//Events
+	createGameUpdateEvent(&hGameUpdateEvent);
+
+	if(hGameUpdateEvent == NULL)
+	{
+		_tprintf(TEXT("Error creating event.\n"));
+		return -1;
+	}
 
 	//TODO: Read from text file to setup
 	maxPlayers = MAX_PLAYERS;
@@ -110,14 +134,37 @@ int main(int argc, char* argv[])
 
 	int option;
 
+	pGameDataMemory->level = 5;
+
 	do
 	{
+		//TODO: Send the game status to change menu accordingly
 		option = initialMenu();
 
 		switch (option)
 		{
 			case START_GAME:
-				//TODO: Create Game Data Shared Memory
+				if(pGameDataMemory->gameStatus != GAME_ACTIVE)
+				{
+					pGameDataMemory->gameStatus = GAME_ACTIVE;
+
+					//TODO: Setup Game Variables
+					gameVariables.hGameUpdateEvent = hGameUpdateEvent;
+					gameVariables.pGameData = pGameDataMemory;
+
+					//Thread to handle client requests
+					hGameThread = CreateThread(
+						NULL,						// default security attributes
+						0,							// use default stack size  
+						GameLogic,					// thread function name
+						(LPVOID)&gameVariables,		// argument to thread function 
+						0,							// use default creation flags 
+						&dwGameThreadId);			// returns the thread identifier 
+				} else
+				{
+					pGameDataMemory->gameStatus = GAME_OVER;
+					WaitForSingleObject(hGameThread, INFINITE);
+				}
 				break;
 			case SHOW_TOP10:
 				showTopPlayers(topPlayers, top10PlayerCount);
@@ -126,11 +173,16 @@ int main(int argc, char* argv[])
 				break;
 			default:
 				break;
+			//TODO: Option to end game
 		}
 
 	} while (option != SHUTDOWN);
 
 	//TODO: Update TOP10
+
+	//Ends the game
+	pGameDataMemory->gameStatus = GAME_OVER;
+	WaitForSingleObject(hGameThread, INFINITE);
 
 	keepAlive = 0;
 	//Unlocks the client request thread
@@ -140,9 +192,11 @@ int main(int argc, char* argv[])
 
 	UnmapViewOfFile(pClientRequestMemory);
 	UnmapViewOfFile(pServerResponseMemory);
+	UnmapViewOfFile(pGameDataMemory);
 
 	CloseHandle(hClientRequestMemoryMap);
 	CloseHandle(hServerResponseMemoryMap);
+	CloseHandle(hGameDataMemoryMap);
 
 	closeHandles();
 }

@@ -24,6 +24,29 @@ void createServersSharedMemory(HANDLE* hServerResponseMemoryMap, DWORD serverRes
 		BUFFER_MEMORY_SERVER_RESPONSES);     // name of mapping object
 }
 
+void createGameSharedMemory(HANDLE* hGameDataMemoryMap, DWORD gameDataSize)
+{
+	*hGameDataMemoryMap = CreateFileMapping(
+		INVALID_HANDLE_VALUE,				 // use paging file
+		NULL,								 // default security
+		PAGE_READWRITE,						 // read/write access
+		0,									 // maximum object size (high-order DWORD)
+		gameDataSize,						 // maximum object size (low-order DWORD)
+		BUFFER_MEMORY_GAME);				 // name of mapping object
+}
+
+GameData* mapReadWriteGameSharedMemory(HANDLE* hGameDataMemoryMap, DWORD gameDataSize)
+{
+	GameData* pGameDataMemory = (GameData*)MapViewOfFile(
+		*hGameDataMemoryMap,				// handle to map object
+		FILE_MAP_ALL_ACCESS,				// read/write permission
+		0,
+		0,
+		gameDataSize);
+
+	return pGameDataMemory;
+}
+
 void createClientsRequestSemaphores(HANDLE* hClientRequestSemaphoreItems, HANDLE* hClientRequestSemaphoreEmpty)
 {
 	*hClientRequestSemaphoreItems = CreateSemaphore(
@@ -62,7 +85,8 @@ int setupRegistryTopPlayers(HANDLE* hResgistryTop10Key, TCHAR* top10Value, DWORD
 		_tprintf(TEXT("Error creating/opening registry key(%d)\n"), GetLastError());
 		return -1;
 	}
-	else {
+	else 
+	{
 		//If key was created, initialize its values
 		if (registryStatus == REG_CREATED_NEW_KEY) {
 			_tprintf(TEXT("Key: HKEY_CURRENT_USER\\Software\\ArkanoidGame created\n"));
@@ -77,7 +101,7 @@ int setupRegistryTopPlayers(HANDLE* hResgistryTop10Key, TCHAR* top10Value, DWORD
 
 			_tprintf(TEXT("Values TOP10 and TOP10PlayerCount saved\n"));
 		}
-		//Se a chave foi aberta, ler os valores lá guardados
+		//If key was opened, read the stored values
 		else if (registryStatus == REG_OPENED_EXISTING_KEY) {
 			_tprintf(TEXT("Key: HKEY_CURRENT_USER\\Software\\ArkanoidGame opened\n"));
 
@@ -89,9 +113,8 @@ int setupRegistryTopPlayers(HANDLE* hResgistryTop10Key, TCHAR* top10Value, DWORD
 			//Read TOP10PlayerCount value
 			size = sizeof(*playerCount);
 			RegQueryValueEx(*hResgistryTop10Key, TOP10_PLAYER_COUNT, NULL, NULL, (LPBYTE)playerCount, &size);
-			
-			//_stprintf_s(str, TAM, TEXT("Autor:%s Versão:%d\n"), autor, versao);
-			_tprintf(TEXT("Lido do Registry:%s\n"), top10Value);
+
+			_tprintf(TEXT("Read from Registry:%s\n"), top10Value);
 		}
 	}
 
@@ -106,18 +129,27 @@ void convertStringToTopPlayers(TopPlayer* topPlayers, TCHAR* top10Value, DWORD* 
 	TCHAR* token = _tcstok_s(value, TEXT(";"), &nextToken);
 	int counter = 0;
 
-	while (token != NULL && counter<10)
+	while (token != NULL && counter < MAX_TOP_PLAYERS)
 	{
 		//Copy username
 		_tcscpy_s(topPlayers[counter].username, TAM, token);
 		//Get score
 		token = _tcstok_s(NULL, TEXT(";"), &nextToken);
 		topPlayers[counter].topScore = _tstoi(token);
-
 		//Get next value
 		counter++;
 		token = _tcstok_s(NULL, TEXT(";"), &nextToken);
 	}
 
 	*playerCount = counter;
+}
+
+void createGameUpdateEvent(HANDLE* hGameUpdateEvent)
+{
+	*hGameUpdateEvent = CreateEvent(
+		NULL,								 // default security attributes
+		TRUE,								 // manual-reset event
+		FALSE,								 // initial state is nonsignaled
+		EVENT_GAME_UPDATE					 // object name
+	);
 }

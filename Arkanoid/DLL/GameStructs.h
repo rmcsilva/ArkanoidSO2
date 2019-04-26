@@ -1,6 +1,7 @@
 #pragma once
 #include "stdafx.h"
 #include "resourceConstants.h"
+#include "gameConstants.h"
 
 #define GAME_LOBBY 0
 #define GAME_ACTIVE 1
@@ -46,14 +47,16 @@ typedef struct Player {
 typedef struct GameData {
 	int gameStatus;
 	int level;
+	int barrierDimensions;
 	int numPlayers;
-	Player *player;
-	Barrier *barrier;
+	Player player[MAX_PLAYERS];
+	Barrier barrier[MAX_PLAYERS];
 	int numBricks;
-	Brick *brick;
+	Brick brick[MAX_BRICKS];
 	int numGifts;
-	Gift *gift;
-	Ball ball;
+	Gift gift[MAX_GIFTS];
+	int numBalls;
+	Ball ball[MAX_BALLS];
 }GameData;
 
 typedef struct TopPlayer {

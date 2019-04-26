@@ -11,15 +11,18 @@ int isLocalUser = 1;
 
 TCHAR username[TAM];
 int id = -1;
+int inGame = 0;
 
 TCHAR top10[TOP10_SIZE];
 
 //Memory Map
 HANDLE hClientRequestMemoryMap;
 HANDLE hServerResponseMemoryMap;
+HANDLE hGameDataMemoryMap;
 
 ClientMessageControl* pClientRequestMemory;
 ServerMessageControl* pServerResponseMemory;
+GameData* pGameDataMemory;
 
 //Mutex
 HANDLE hClientRequestMutex;
@@ -34,16 +37,19 @@ HANDLE hServerResponseSemaphoreEmpty;
 
 //Event
 HANDLE hClientMessageCheckEvent;
+HANDLE hGameUpdateEvent;
 
 int login(TCHAR* loginUsername)
 {
 	openClientsSharedMemory(&hClientRequestMemoryMap);
 	openServersSharedMemory(&hServerResponseMemoryMap);
+	openGameSharedMemory(&hGameDataMemoryMap);
 	
 	pClientRequestMemory = mapClientsSharedMemory(&hClientRequestMemoryMap, sizeof(ClientMessageControl));
 	pServerResponseMemory = mapServersSharedMemory(&hServerResponseMemoryMap, sizeof(ServerMessageControl));
+	pGameDataMemory = mapReadOnlyGameSharedMemory(&hGameDataMemoryMap, sizeof(GameData));
 
-	if(pClientRequestMemory == NULL || pServerResponseMemory == NULL)
+	if(pClientRequestMemory == NULL || pServerResponseMemory == NULL || pGameDataMemory == NULL)
 	{
 		_tprintf(TEXT("Error connecting to server!\n"));
 		return -1;
@@ -72,10 +78,11 @@ int login(TCHAR* loginUsername)
 	}
 
 	createClientMessageCheckEvent(&hClientMessageCheckEvent);
+	openGameUpdateEvent(&hGameUpdateEvent);
 
-	if (hClientMessageCheckEvent == NULL)
+	if (hClientMessageCheckEvent == NULL || hGameUpdateEvent == NULL)
 	{
-		_tprintf(TEXT("Error creating event!\n"));
+		_tprintf(TEXT("Error creating/opening event!\n"));
 		return -1;
 	}
 
@@ -125,7 +132,11 @@ int receiveMessage(int messageType)
 				case LOGIN_REQUEST:
 					if(_tcscmp(username, serverMessage->username) == 0)
 					{
-						id = serverMessage->id;
+						if(serverMessage->type == REQUEST_ACCEPTED)
+						{
+							id = serverMessage->id;
+						}
+						
 					} else
 					{
 						pServerResponseMemory->counter++;
@@ -167,15 +178,27 @@ int receiveMessage(int messageType)
 	}
 }
 
+int receiveBroadcast()
+{
+	WaitForSingleObject(hGameUpdateEvent, INFINITE);
+	_tprintf(TEXT("\nBall position x: %d y: %d\n"), pGameDataMemory->ball[0].position.x, pGameDataMemory->ball[0].position.y);
+	return pGameDataMemory->gameStatus;
+}
+
 void logout()
 {
-	sendMessage(LOGOUT);
+	if(id != -1)
+	{
+		sendMessage(LOGOUT);
+	}
 
 	UnmapViewOfFile(pClientRequestMemory);
 	UnmapViewOfFile(pServerResponseMemory);
+	UnmapViewOfFile(pGameDataMemory);
 
 	CloseHandle(hClientRequestMemoryMap);
 	CloseHandle(hServerResponseMemoryMap);
+	CloseHandle(hGameDataMemoryMap);
 
 	CloseHandle(hClientRequestMutex);
 	CloseHandle(hServerResponseMutex);
@@ -184,4 +207,7 @@ void logout()
 	CloseHandle(hClientRequestSemaphoreEmpty);
 	CloseHandle(hServerResponseSemaphoreItems);
 	CloseHandle(hServerResponseSemaphoreEmpty);
+
+	CloseHandle(hClientMessageCheckEvent);
+	CloseHandle(hGameUpdateEvent);
 }

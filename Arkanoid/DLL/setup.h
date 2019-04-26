@@ -1,6 +1,7 @@
 #pragma once
 #include "stdafx.h"
 #include "messages.h"
+#include "GameStructs.h"
 
 #ifdef DLL_EXPORTS
 #define DLL_IMP_API __declspec(dllexport)
@@ -11,7 +12,7 @@
 //Shared Memory
 void openClientsSharedMemory(HANDLE* hClientRequestMemoryMap);
 void openServersSharedMemory(HANDLE* hServerResponseMemoryMap);
-//void setupGameSharedMemory();
+void openGameSharedMemory(HANDLE* hGameDataMemoryMap);
 
 //Mutex
 void createClientsRequestMutex(HANDLE* hClientRequestMutex);
@@ -23,6 +24,10 @@ void openServersResponseSemaphores(HANDLE* hServerResponseSemaphoreItems, HANDLE
 
 //Event
 void createClientMessageCheckEvent(HANDLE* hClientMessageCheckEvent);
+void openGameUpdateEvent(HANDLE* hGameUpdateEvent);
+
+//Shared Memory
+GameData* mapReadOnlyGameSharedMemory(HANDLE* hGameDataMemoryMap, DWORD gameDataSize);
 
 #ifdef __cplusplus
 extern "C" {

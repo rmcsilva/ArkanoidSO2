@@ -14,10 +14,13 @@ int loginUser(TCHAR username[])
 int initialMenu()
 {
 	int option;
-	_tprintf(TEXT("1 - Show player top 10\n"));
-	_tprintf(TEXT("2 - Shutdown client\n"));
-	_tprintf(TEXT("Enter your option >> "));
-
+	if(!inGame)
+	{
+		_tprintf(TEXT("1 - Show player top 10\n"));
+		_tprintf(TEXT("2 - Shutdown client\n"));
+		_tprintf(TEXT("Enter your option >> "));
+	}
+	
 	option = readInt();
 	switch (option)
 	{
