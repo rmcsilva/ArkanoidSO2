@@ -49,11 +49,12 @@ Player* users;
 
 int keepAlive = 1;
 
-int main(int argc, char* argv[])
+int _tmain(int argc, TCHAR* argv[])
 {
 	ClientMessageControl clientRequests;
 	ServerMessageControl serverResponses;
 	GameData gameData;
+	GameConfigs gameConfigs;
 
 	HANDLE hClientRequestMemoryMap;
 	HANDLE hServerResponseMemoryMap;
@@ -65,6 +66,13 @@ int main(int argc, char* argv[])
 	_setmode(_fileno(stdin), _O_WTEXT);
 	_setmode(_fileno(stdout), _O_WTEXT);
 #endif
+
+	if(argc != 2)
+	{
+		_tprintf(TEXT("Invalid number of arguments!\n"));
+		_tprintf(TEXT("%hs <ConfigsFilename>\n"), argv[0]);
+		return -1;
+	}
 
 	//Setup Shared Memory
 	createClientsSharedMemory(&hClientRequestMemoryMap, sizeof(clientRequests));
@@ -111,9 +119,14 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	//TODO: Read from text file to setup
-	maxPlayers = MAX_PLAYERS;
-	users = malloc(sizeof(Player) * maxPlayers);
+	if(setupInitialGameConfigs(argv[1], &gameConfigs) == -1)
+	{
+		_gettchar();
+		return -1;
+	}
+
+	maxPlayers = gameConfigs.maxPlayers;
+	users = malloc(sizeof(Player) * gameConfigs.maxPlayers);
 
 	//Thread to handle client requests
 	hClientRequestThread = CreateThread(
@@ -173,7 +186,6 @@ int main(int argc, char* argv[])
 				break;
 			default:
 				break;
-			//TODO: Option to end game
 		}
 
 	} while (option != SHUTDOWN);

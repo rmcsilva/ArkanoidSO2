@@ -1,0 +1,8 @@
+maxPlayers:5;
+numLevels:1;
+numBonus:10;
+bonusDuration:10000;
+bonusProbability:50;
+initialLives:3;
+numBricks:100;
+movementSpeed:1;

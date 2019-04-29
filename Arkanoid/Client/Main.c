@@ -10,7 +10,7 @@ DWORD WINAPI GameUpdate(LPVOID lpParam);
 HANDLE hGameThread;
 DWORD dwGameThreadId;
 
-int main(int argc, char* argv[])
+int _tmain(int argc, TCHAR* argv[])
 {
 
 #ifdef UNICODE

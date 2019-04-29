@@ -41,6 +41,7 @@ typedef struct Player {
 	TCHAR username[TAM];
 	int score;
 	int id;
+	int lives;
 	int inGame;
 }Player;
 

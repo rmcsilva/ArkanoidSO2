@@ -3,12 +3,17 @@
 #include "messages.h"
 #include "gameStructs.h"
 #include "gameConstants.h"
+#include "gameLogic.h"
+#include <stdlib.h>
+
+#define TOTAL_CONFIGS 8
 
 //Shared Memory
 void createClientsSharedMemory(HANDLE* hClientRequestMemoryMap, DWORD clientRequestsSize);
 void createServersSharedMemory(HANDLE* hServerResponseMemoryMap, DWORD serverResponsesSize);
 void createGameSharedMemory(HANDLE* hGameDataMemoryMap, DWORD gameDataSize);
 GameData* mapReadWriteGameSharedMemory(HANDLE* hGameDataMemoryMap, DWORD gameDataSize);
+int setupInitialGameConfigs(TCHAR* filename[_MAX_FNAME], GameConfigs* gameConfigs);
 
 //Semaphore
 void createClientsRequestSemaphores(HANDLE* hClientRequestSemaphoreItems, HANDLE* hClientRequestSemaphoreEmpty);
