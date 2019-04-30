@@ -7,7 +7,7 @@
 #define MAX_PLAYERS 20
 #define MAX_TOP_PLAYERS 10
 #define MAX_BRICKS 100
-#define MAX_GIFTS 5
+#define MAX_BONUS 5
 #define MAX_BALLS 3
 
 //Game Status

@@ -29,20 +29,21 @@ typedef struct Barrier {
 typedef struct Brick {
 	Position position;
 	int resistance;
-	int hasGift;
+	BOOL hasBonus;
+	int bonusType;
 }Brick;
 
-typedef struct Gift {
+typedef struct Bonus {
 	Position position;
 	int type;
-}Gift;
+}Bonus;
 
 typedef struct Player {
 	TCHAR username[TAM];
-	int score;
 	int id;
+	int score;
 	int lives;
-	int inGame;
+	BOOL inGame;
 }Player;
 
 typedef struct GameData {
@@ -54,8 +55,8 @@ typedef struct GameData {
 	Barrier barrier[MAX_PLAYERS];
 	int numBricks;
 	Brick brick[MAX_BRICKS];
-	int numGifts;
-	Gift gift[MAX_GIFTS];
+	int numBonus;
+	Bonus bonus[MAX_BONUS];
 	int numBalls;
 	Ball ball[MAX_BALLS];
 }GameData;
