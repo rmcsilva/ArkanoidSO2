@@ -6,12 +6,17 @@
 #include "DLL.h"
 
 DWORD WINAPI GameUpdate(LPVOID lpParam);
+DWORD WINAPI ServerShutdown(LPVOID lpParam);
 
-HANDLE hGameThread;
-DWORD dwGameThreadId;
+BOOL keepAlive = TRUE;
 
 int _tmain(int argc, TCHAR* argv[])
 {
+	HANDLE hGameThread;
+	DWORD dwGameThreadId;
+
+	HANDLE hServerShutdownThread;
+	DWORD dwServerShutdownThreadId;
 
 #ifdef UNICODE
 	_setmode(_fileno(stdin), _O_WTEXT);
@@ -36,7 +41,6 @@ int _tmain(int argc, TCHAR* argv[])
 		return -1;
 	}
 
-
 	//Thread to handle the game updates
 	hGameThread = CreateThread(
 		NULL,						// default security attributes
@@ -45,6 +49,15 @@ int _tmain(int argc, TCHAR* argv[])
 		NULL,						// argument to thread function 
 		0,							// use default creation flags 
 		&dwGameThreadId);			// returns the thread identifier 
+
+	//Thread to check if the server is shutting down
+	hServerShutdownThread = CreateThread(
+		NULL,						// default security attributes
+		0,							// use default stack size  
+		ServerShutdown,				// thread function name
+		NULL,						// argument to thread function 
+		0,							// use default creation flags 
+		&dwServerShutdownThreadId);	// returns the thread identifier 
 
 	int option;
 
@@ -62,11 +75,14 @@ int _tmain(int argc, TCHAR* argv[])
 					showTop10();
 				}
 				break;
+			case LOGOUT:
+				keepAlive = FALSE;
+				break;
 			default:
 				break;
 		}
 	}
-	while (option != LOGOUT);
+	while (keepAlive != FALSE);
 
 	TerminateThread(hGameThread, 1);
 	WaitForSingleObject(hGameThread, INFINITE);
@@ -89,6 +105,37 @@ DWORD WINAPI GameUpdate(LPVOID lpParam)
 	sendMessage(TOP10);
 	receiveMessage(TOP10);
 	showTop10();
+
+	return 1;
+}
+
+DWORD WINAPI ServerShutdown(LPVOID lpParam)
+{
+	receiveMessage(LOGOUT);
+	keepAlive = FALSE;
+
+	//Simulates a key press of 9 + ENTER causing the gets to trigger and the main thread to end
+	HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+	DWORD dwTmp;
+	INPUT_RECORD ir[2];
+
+	ir[0].EventType = KEY_EVENT;
+	ir[0].Event.KeyEvent.bKeyDown = TRUE;
+	ir[0].Event.KeyEvent.dwControlKeyState = 0;
+	ir[0].Event.KeyEvent.uChar.UnicodeChar = '9';
+	ir[0].Event.KeyEvent.wRepeatCount = 1;
+	ir[0].Event.KeyEvent.wVirtualKeyCode = '9';
+	ir[0].Event.KeyEvent.wVirtualScanCode = MapVirtualKey('9', MAPVK_VK_TO_VSC);
+
+	ir[1].EventType = KEY_EVENT;
+	ir[1].Event.KeyEvent.bKeyDown = TRUE;
+	ir[1].Event.KeyEvent.dwControlKeyState = 0;
+	ir[1].Event.KeyEvent.uChar.UnicodeChar = VK_RETURN;
+	ir[1].Event.KeyEvent.wRepeatCount = 1;
+	ir[1].Event.KeyEvent.wVirtualKeyCode = VK_RETURN;
+	ir[1].Event.KeyEvent.wVirtualScanCode = MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC);
+
+	WriteConsoleInput(hStdin, ir, 2, &dwTmp);
 
 	return 1;
 }

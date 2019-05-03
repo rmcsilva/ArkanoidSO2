@@ -17,6 +17,7 @@ ServerMessage userLogin(ClientMessage* clientMessage);
 ServerMessage sendTop10(ClientMessage* clientMessage);
 void userLogout(int userID);
 void sendResponse(ServerMessage serverMessage);
+void serverShutdownClients();
 void closeHandles();
 
 HANDLE hClientRequestThread;
@@ -200,6 +201,9 @@ int _tmain(int argc, TCHAR* argv[])
 	//Unlocks the client request thread
 	ReleaseSemaphore(hClientRequestSemaphoreItems, 1, NULL);
 
+	//Sends message to clients that server is shutting down
+	serverShutdownClients();
+
 	WaitForSingleObject(hClientRequestThread, INFINITE);
 
 	UnmapViewOfFile(pClientRequestMemory);
@@ -311,7 +315,7 @@ void userLogout(int userID)
 	{
 		if(users[i].id == userID)
 		{
-			_tprintf(TEXT("User %s logged out\n"), users[i].username);
+			_tprintf(TEXT("\n\nUser %s logged out\n\n"), users[i].username);
 			currentUsers--;
 			for(int j = i; j < currentUsers; j++)
 			{
@@ -324,6 +328,17 @@ void userLogout(int userID)
 			break;
 		}
 	}
+}
+
+void serverShutdownClients()
+{
+	ServerMessage logout;
+	logout.type = LOGOUT;
+	logout.id = -1;
+	TCHAR empty[] = TEXT("");
+	_tcscpy_s(logout.username, sizeof(empty), empty);
+	_tcscpy_s(logout.content, sizeof(empty), empty);
+	sendResponse(logout);
 }
 
 void closeHandles()

@@ -100,13 +100,10 @@ void sendMessage(int messageType)
 
 	int position = pClientRequestMemory->clientInput;
 	ClientMessage* clientRequest = &pClientRequestMemory->clientMessageBuffer[position];
-	clientRequest->type = messageType;
 
-	//Only copies the username on the login then it uses the ID
-	if (messageType == LOGIN_REQUEST)
-		_tcscpy_s(clientRequest->username, TAM, username);
-	else
-		clientRequest->id = id;
+	clientRequest->type = messageType;
+	_tcscpy_s(clientRequest->username, TAM, username);
+	clientRequest->id = id;
 
 	pClientRequestMemory->clientInput = (position + 1) % BUFFER_SIZE;
 	ReleaseMutex(hClientRequestMutex);
@@ -124,7 +121,7 @@ int receiveMessage(int messageType)
 		ServerMessage* serverMessage = &pServerResponseMemory->serverMessageBuffer[position];
 
 		//Only reads messages for the corresponding client
-		if (pServerResponseMemory->counter == pServerResponseMemory->numUsers || serverMessage->id == id || messageType == LOGIN_REQUEST)
+		if (pServerResponseMemory->counter == pServerResponseMemory->numUsers || serverMessage->id == id || messageType == LOGIN_REQUEST || serverMessage->type == LOGOUT)
 		{
 			//_tprintf(TEXT("Server Response\nUsername: %s\nID: %d\n"), serverMessage->username, serverMessage->id);
 			switch (messageType)
@@ -140,24 +137,29 @@ int receiveMessage(int messageType)
 					} else
 					{
 						pServerResponseMemory->counter++;
-						_tprintf(TEXT("Waiting for the response: %d\n"), pServerResponseMemory->counter);
-						ReleaseMutex(hServerResponseMutex);
-						ReleaseSemaphore(hServerResponseSemaphoreItems, 1, NULL);
-						//Waits on the event until a client reads his response or the response gets ignored if its for a client that logged out
-						WaitForSingleObject(hClientMessageCheckEvent, INFINITE);
+						waitForResponseOnEvent();
 						continue;
 					}
 					break;
 				case TOP10:
 					_tcscpy_s(top10, TOP10_SIZE, serverMessage->content);
 					break;
+				case LOGOUT:
+					if(serverMessage->type == LOGOUT)
+					{
+						ReleaseMutex(hServerResponseMutex);
+						ReleaseSemaphore(hServerResponseSemaphoreItems, 1, NULL);
+						SetEvent(hClientMessageCheckEvent);
+						return LOGOUT;
+					} else
+					{
+						waitForResponseOnEvent();
+						continue;
+					}
 			}
 
-			if (pServerResponseMemory->counter > 0)
-			{
-				pServerResponseMemory->counter = 0;
-				SetEvent(hClientMessageCheckEvent);
-			}
+			pServerResponseMemory->counter = 0;
+			SetEvent(hClientMessageCheckEvent);
 
 			pServerResponseMemory->clientOutput = (position + 1) % BUFFER_SIZE;
 			ReleaseMutex(hServerResponseMutex);
@@ -169,13 +171,18 @@ int receiveMessage(int messageType)
 		else
 		{
 			pServerResponseMemory->counter++;
-			_tprintf(TEXT("Waiting for the response: %d\n"), pServerResponseMemory->counter);
-			ReleaseMutex(hServerResponseMutex);
-			ReleaseSemaphore(hServerResponseSemaphoreItems, 1, NULL);
-			//Waits on the event until a client reads his response or the response gets ignored if its for a client that logged out
-			WaitForSingleObject(hClientMessageCheckEvent, INFINITE);
+			waitForResponseOnEvent();
 		}
 	}
+}
+
+void waitForResponseOnEvent()
+{
+	ReleaseMutex(hServerResponseMutex);
+	ReleaseSemaphore(hServerResponseSemaphoreItems, 1, NULL);
+	//_tprintf(TEXT("Waiting for the response: %d\n"), pServerResponseMemory->counter);
+	//Waits on the event until a client reads his response or the response gets ignored if its for a client that logged out
+	WaitForSingleObject(hClientMessageCheckEvent, INFINITE);
 }
 
 int receiveBroadcast()

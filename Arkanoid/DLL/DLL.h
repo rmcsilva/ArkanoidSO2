@@ -18,6 +18,8 @@
 #define DLL_IMP_API __declspec(dllimport)
 #endif
 
+void waitForResponseOnEvent();
+
 #ifdef __cplusplus
 extern "C" {
 #endif
