@@ -121,7 +121,7 @@ DWORD WINAPI ServerShutdown(LPVOID lpParam)
 
 	ir[0].EventType = KEY_EVENT;
 	ir[0].Event.KeyEvent.bKeyDown = TRUE;
-	ir[0].Event.KeyEvent.dwControlKeyState = 0;
+	ir[0].Event.KeyEvent.dwControlKeyState = MAPVK_VK_TO_VSC;
 	ir[0].Event.KeyEvent.uChar.UnicodeChar = '9';
 	ir[0].Event.KeyEvent.wRepeatCount = 1;
 	ir[0].Event.KeyEvent.wVirtualKeyCode = '9';
@@ -129,7 +129,7 @@ DWORD WINAPI ServerShutdown(LPVOID lpParam)
 
 	ir[1].EventType = KEY_EVENT;
 	ir[1].Event.KeyEvent.bKeyDown = TRUE;
-	ir[1].Event.KeyEvent.dwControlKeyState = 0;
+	ir[1].Event.KeyEvent.dwControlKeyState = MAPVK_VK_TO_VSC;
 	ir[1].Event.KeyEvent.uChar.UnicodeChar = VK_RETURN;
 	ir[1].Event.KeyEvent.wRepeatCount = 1;
 	ir[1].Event.KeyEvent.wVirtualKeyCode = VK_RETURN;
