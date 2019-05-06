@@ -71,7 +71,8 @@ int _tmain(int argc, TCHAR* argv[])
 	if(argc != 2)
 	{
 		_tprintf(TEXT("Invalid number of arguments!\n"));
-		_tprintf(TEXT("%hs <ConfigsFilename>\n"), argv[0]);
+		_tprintf(TEXT("%ls <ConfigsFilename>\n"), argv[0]);
+		_gettchar();
 		return -1;
 	}
 
@@ -163,6 +164,7 @@ int _tmain(int argc, TCHAR* argv[])
 					pGameDataMemory->gameStatus = GAME_ACTIVE;
 
 					//TODO: Setup Game Variables
+					//TODO: Update user status
 					gameVariables.hGameUpdateEvent = hGameUpdateEvent;
 					gameVariables.pGameData = pGameDataMemory;
 
@@ -177,6 +179,7 @@ int _tmain(int argc, TCHAR* argv[])
 				} else
 				{
 					pGameDataMemory->gameStatus = GAME_OVER;
+					//TODO: Update user status
 					WaitForSingleObject(hGameThread, INFINITE);
 				}
 				break;
@@ -184,6 +187,7 @@ int _tmain(int argc, TCHAR* argv[])
 				showTopPlayers(topPlayers, top10PlayerCount);
 				break;
 			case LIST_USERS:
+				showConnectedUsers(users, currentUsers);
 				break;
 			default:
 				break;

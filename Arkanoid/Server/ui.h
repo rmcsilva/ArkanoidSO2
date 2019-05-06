@@ -13,3 +13,4 @@
 int initialMenu();
 void showResponseMessageInformation(ServerMessage serverMessage, int requestType);
 void showTopPlayers(TopPlayer* topPlayers, DWORD playerCount);
+void showConnectedUsers(Player* users, int connectedUsers);

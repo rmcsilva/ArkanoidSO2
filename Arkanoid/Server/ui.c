@@ -60,3 +60,27 @@ void showTopPlayers(TopPlayer* topPlayers, DWORD playerCount)
 		_tprintf(TEXT("Username: %s\nScore: %d\n\n"), topPlayers[i].username, topPlayers[i].topScore);
 	}
 }
+
+void showConnectedUsers(Player* users, int connectedUsers)
+{
+	if(connectedUsers == 0)
+	{
+		_tprintf(TEXT("\nThere are no connected users!\n\n"));
+	} else
+	{
+		_tprintf(TEXT("\nConnected Users:\n"));
+	}
+
+	for(int i=0; i < connectedUsers; i++)
+	{
+		_tprintf(TEXT("Username: %s\nId: %d\n"), users[i].username, users[i].id);
+		if(users[i].inGame == TRUE)
+		{
+			_tprintf(TEXT("User is in game!\n"));
+			_tprintf(TEXT("Lives: %d\nScore: %d\n"), users[i].lives, users[i].score);
+		} else
+		{
+			_tprintf(TEXT("User is not in game!\n\n"));
+		}		
+	}
+}
