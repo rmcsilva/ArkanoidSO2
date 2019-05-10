@@ -3,6 +3,7 @@
 #include "DLL.h"
 #include "setup.h"
 #include "ui.h"
+#include "util.h"
 
 #include <windows.h>
 #include <tchar.h>
@@ -278,6 +279,7 @@ void sendResponse(ServerMessage serverMessage)
 
 ServerMessage userLogin(ClientMessage* clientMessage)
 {
+	BOOL validUser = TRUE;
 	ServerMessage serverResponse;
 	_tcscpy_s(serverResponse.username, TAM, clientMessage->username);
 	_tcscpy_s(serverResponse.content, TAM, TEXT(""));
@@ -285,18 +287,34 @@ ServerMessage userLogin(ClientMessage* clientMessage)
 	//TODO: Check if game is going, if it is increment total users in the shared memory pointer
 	if (currentUsers < maxPlayers)
 	{
-		users[currentUsers].id = id;
-		serverResponse.id = id;
-		_tcscpy_s(users[currentUsers].username, TAM, serverResponse.username);		
-		serverResponse.type = REQUEST_ACCEPTED;
-		pServerResponseMemory->numUsers++;
-		currentUsers++;
-		id++;
-	} else
-	{
-		serverResponse.id = -1;
-		serverResponse.type = REQUEST_DENIED;
+		for(int i=0; i < currentUsers; i++)
+		{
+			//Checks if username already exists
+			if(_tcscmp(serverResponse.username, users[i].username) == 0)
+			{
+				validUser = FALSE;
+				break;
+			}
+		}
+
+		if(validUser == TRUE)
+		{
+			users[currentUsers].id = id;
+			serverResponse.id = id;
+			_tcscpy_s(users[currentUsers].username, TAM, serverResponse.username);
+			serverResponse.type = REQUEST_ACCEPTED;
+			pServerResponseMemory->numUsers++;
+			currentUsers++;
+			id++;
+
+			return serverResponse;
+		}
+
 	}
+
+	//Invalid user
+	serverResponse.id = -1;
+	serverResponse.type = REQUEST_DENIED;
 
 	return serverResponse;
 }

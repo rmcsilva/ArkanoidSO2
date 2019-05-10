@@ -6,6 +6,9 @@ int loginUser(TCHAR username[])
 {
 	_tprintf(TEXT("Enter your username > "));
 	_getts_s(username, TAM-1);
+
+	username = trimWhiteSpace(username);
+
 	_tprintf(TEXT("Hello %s\n%hs"), username, CLIENT_WELCOME_MESSAGE);
 
 	return login(username);
