@@ -11,7 +11,7 @@ int loginUser(TCHAR username[])
 
 	_tprintf(TEXT("Hello %s\n%hs"), username, CLIENT_WELCOME_MESSAGE);
 
-	return login(username);
+	return login(username, NULL);
 }
 
 int initialMenu()

@@ -99,7 +99,7 @@ DWORD WINAPI GameUpdate(LPVOID lpParam)
 		//Export the game memory pointer and update?
 	}
 
-	inGame = IN_LOBBY;
+	inGame = FALSE;
 
 	//Receives the top10
 	sendMessage(TOP10);

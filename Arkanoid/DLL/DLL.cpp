@@ -7,14 +7,15 @@
 #include "setup.h"
 
 //Indicate if user is local or remote
-int isLocalUser = 1;
+BOOL isLocalUser = TRUE;
 
 TCHAR username[TAM];
 int id = -1;
-int inGame = 0;
+BOOL inGame = FALSE;
 
 TCHAR top10[TOP10_SIZE];
 
+//Shared Memory Variables
 //Memory Map
 HANDLE hClientRequestMemoryMap;
 HANDLE hServerResponseMemoryMap;
@@ -39,17 +40,80 @@ HANDLE hServerResponseSemaphoreEmpty;
 HANDLE hClientMessageCheckEvent;
 HANDLE hGameUpdateEvent;
 
-int login(TCHAR* loginUsername)
+//Named Pipe Variables
+TCHAR pipeClientRequestsName[MAX];
+TCHAR pipeServerResponsesName[MAX];
+
+int login(TCHAR* loginUsername, TCHAR* ip)
+{
+	if(ip == NULL)
+	{
+		return loginSharedMemory(loginUsername);
+	} else
+	{
+		isLocalUser = FALSE;
+		//TODO: Add pipe login
+	}
+}
+
+void sendMessage(int messageType)
+{
+	if(isLocalUser == TRUE)
+	{
+		return sendMessageSharedMemory(messageType);
+	} else
+	{
+		//TODO: Add message by pipe
+	}
+}
+
+int receiveMessage(int messageType)
+{
+	if(isLocalUser == TRUE)
+	{
+		return receiveMessageSharedMemory(messageType);
+	} else
+	{
+		//TODO: Receive message by pipe
+	}
+}
+
+int receiveBroadcast()
+{
+	if(isLocalUser == TRUE)
+	{
+		WaitForSingleObject(hGameUpdateEvent, INFINITE);
+		_tprintf(TEXT("\nBall position x: %d y: %d\n"), pGameDataMemory->ball[0].position.x, pGameDataMemory->ball[0].position.y);
+		return pGameDataMemory->gameStatus;
+	} else
+	{
+		//TODO: Add pipe broadcast
+	}
+	
+}
+
+void logout()
+{
+	if(isLocalUser == TRUE)
+	{
+		return logoutSharedMemory();
+	} else
+	{
+		//TODO: add pipe logout
+	}
+}
+
+int loginSharedMemory(TCHAR* loginUsername)
 {
 	openClientsSharedMemory(&hClientRequestMemoryMap);
 	openServersSharedMemory(&hServerResponseMemoryMap);
 	openGameSharedMemory(&hGameDataMemoryMap);
-	
+
 	pClientRequestMemory = mapClientsSharedMemory(&hClientRequestMemoryMap, sizeof(ClientMessageControl));
 	pServerResponseMemory = mapServersSharedMemory(&hServerResponseMemoryMap, sizeof(ServerMessageControl));
 	pGameDataMemory = mapReadOnlyGameSharedMemory(&hGameDataMemoryMap, sizeof(GameData));
 
-	if(pClientRequestMemory == NULL || pServerResponseMemory == NULL || pGameDataMemory == NULL)
+	if (pClientRequestMemory == NULL || pServerResponseMemory == NULL || pGameDataMemory == NULL)
 	{
 		_tprintf(TEXT("Error connecting to server!\n"));
 		return -1;
@@ -88,12 +152,12 @@ int login(TCHAR* loginUsername)
 
 	_tcscpy_s(username, TAM, loginUsername);
 
-	sendMessage(LOGIN_REQUEST);
+	sendMessageSharedMemory(LOGIN_REQUEST);
 
 	return 1;
 }
 
-void sendMessage(int messageType)
+void sendMessageSharedMemory(int messageType)
 {
 	WaitForSingleObject(hClientRequestSemaphoreEmpty, INFINITE);
 	WaitForSingleObject(hClientRequestMutex, INFINITE);
@@ -110,7 +174,7 @@ void sendMessage(int messageType)
 	ReleaseSemaphore(hClientRequestSemaphoreItems, 1, NULL);
 }
 
-int receiveMessage(int messageType)
+int receiveMessageSharedMemory(int messageType)
 {
 	while (TRUE)
 	{
@@ -126,36 +190,38 @@ int receiveMessage(int messageType)
 			//_tprintf(TEXT("Server Response\nUsername: %s\nID: %d\n"), serverMessage->username, serverMessage->id);
 			switch (messageType)
 			{
-				case LOGIN_REQUEST:
-					if(_tcscmp(username, serverMessage->username) == 0)
+			case LOGIN_REQUEST:
+				if (_tcscmp(username, serverMessage->username) == 0)
+				{
+					if (serverMessage->type == REQUEST_ACCEPTED)
 					{
-						if(serverMessage->type == REQUEST_ACCEPTED)
-						{
-							id = serverMessage->id;
-						}
-						
-					} else
-					{
-						pServerResponseMemory->counter++;
-						waitForResponseOnEvent();
-						continue;
+						id = serverMessage->id;
 					}
-					break;
-				case TOP10:
-					_tcscpy_s(top10, TOP10_SIZE, serverMessage->content);
-					break;
-				case LOGOUT:
-					if(serverMessage->type == LOGOUT)
-					{
-						ReleaseMutex(hServerResponseMutex);
-						ReleaseSemaphore(hServerResponseSemaphoreItems, 1, NULL);
-						SetEvent(hClientMessageCheckEvent);
-						return LOGOUT;
-					} else
-					{
-						waitForResponseOnEvent();
-						continue;
-					}
+
+				}
+				else
+				{
+					pServerResponseMemory->counter++;
+					waitForResponseOnEvent();
+					continue;
+				}
+				break;
+			case TOP10:
+				_tcscpy_s(top10, TOP10_SIZE, serverMessage->content);
+				break;
+			case LOGOUT:
+				if (serverMessage->type == LOGOUT)
+				{
+					ReleaseMutex(hServerResponseMutex);
+					ReleaseSemaphore(hServerResponseSemaphoreItems, 1, NULL);
+					SetEvent(hClientMessageCheckEvent);
+					return LOGOUT;
+				}
+				else
+				{
+					waitForResponseOnEvent();
+					continue;
+				}
 			}
 
 			pServerResponseMemory->counter = 0;
@@ -185,18 +251,11 @@ void waitForResponseOnEvent()
 	WaitForSingleObject(hClientMessageCheckEvent, INFINITE);
 }
 
-int receiveBroadcast()
+void logoutSharedMemory()
 {
-	WaitForSingleObject(hGameUpdateEvent, INFINITE);
-	_tprintf(TEXT("\nBall position x: %d y: %d\n"), pGameDataMemory->ball[0].position.x, pGameDataMemory->ball[0].position.y);
-	return pGameDataMemory->gameStatus;
-}
-
-void logout()
-{
-	if(id != -1)
+	if (id != -1)
 	{
-		sendMessage(LOGOUT);
+		sendMessageSharedMemory(LOGOUT);
 	}
 
 	UnmapViewOfFile(pClientRequestMemory);
