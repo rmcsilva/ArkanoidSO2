@@ -43,6 +43,7 @@ HANDLE hGameUpdateEvent;
 //Named Pipe Variables
 TCHAR pipeClientRequestsName[MAX];
 TCHAR pipeServerResponsesName[MAX];
+TCHAR pipeGameName[MAX];
 
 int login(TCHAR* loginUsername, TCHAR* ip)
 {
@@ -52,6 +53,13 @@ int login(TCHAR* loginUsername, TCHAR* ip)
 	} else
 	{
 		isLocalUser = FALSE;
+
+		int bufferSize = MAX - 1;
+		_stprintf_s(pipeClientRequestsName, bufferSize, NAMED_PIPE_CLIENT_REQUESTS, ip);
+		_stprintf_s(pipeServerResponsesName, bufferSize, NAMED_PIPE_SERVER_RESPONSES, ip);
+		_stprintf_s(pipeGameName, bufferSize, NAMED_PIPE_GAME, ip);
+
+		_tprintf(TEXT("Client pipe: %s\nServer pipe: %s\nGame pipe: %s\n"), pipeClientRequestsName, pipeServerResponsesName, pipeGameName);
 		//TODO: Add pipe login
 	}
 }

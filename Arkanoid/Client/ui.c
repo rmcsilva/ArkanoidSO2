@@ -1,6 +1,7 @@
 #include "ui.h"
 #include "DLL.h"
 #include "util.h"
+#include <stdio.h>
 
 int loginUser(TCHAR username[])
 {
@@ -11,7 +12,32 @@ int loginUser(TCHAR username[])
 
 	_tprintf(TEXT("Hello %s\n%hs"), username, CLIENT_WELCOME_MESSAGE);
 
-	return login(username, NULL);
+	TCHAR answer;
+
+	while (TRUE)
+	{
+		_tprintf(TEXT("Play as a local user?\nY/N > "));
+
+		int ch = _gettchar();
+
+		ch = _totupper(ch);
+		answer = (TCHAR)ch;
+
+		_gettchar();
+
+		switch (answer)
+		{
+			case 'Y':
+				return login(username, NULL);
+			case 'N': {
+				TCHAR ip[MAX_IP_SIZE + 1];
+				_tprintf(TEXT("Insert the IP of the server > "));
+				_getts_s(ip, MAX_IP_SIZE);
+				return login(username, ip); }
+			default:
+				_tprintf(TEXT("Insert a valid answer!\n"));
+		}
+	}
 }
 
 int initialMenu()
