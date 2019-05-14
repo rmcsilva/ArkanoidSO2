@@ -122,3 +122,34 @@ void openGameUpdateEvent(HANDLE* hGameUpdateEvent)
 		EVENT_GAME_UPDATE					 // object name
 	);
 }
+
+void openNamedPipe(HANDLE* hPipe, TCHAR* pipeName, DWORD accessMode)
+{
+	*hPipe = CreateFile(
+		pipeName,		// pipe name 
+		accessMode,		// access mode
+		0,              // no sharing 
+		NULL,           // default security attributes
+		OPEN_EXISTING,  // opens existing pipe 
+		0,              // default attributes 
+		NULL);          // no template file 
+}
+
+BOOL changePipeToMessageMode(HANDLE hPipe)
+{
+	DWORD dwMode = PIPE_READMODE_MESSAGE;
+
+	BOOL fSuccess = SetNamedPipeHandleState(
+		hPipe,    // pipe handle 
+		&dwMode,  // new pipe mode 
+		NULL,     // don't set maximum bytes 
+		NULL);    // don't set maximum time 
+
+	if (!fSuccess)
+	{
+		_tprintf(TEXT("SetNamedPipeHandleState failed. GLE=%d\n"), GetLastError());
+		return FALSE;
+	}
+
+	return TRUE;
+}

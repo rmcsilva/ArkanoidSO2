@@ -29,6 +29,10 @@ void openGameUpdateEvent(HANDLE* hGameUpdateEvent);
 //Shared Memory
 GameData* mapReadOnlyGameSharedMemory(HANDLE* hGameDataMemoryMap, DWORD gameDataSize);
 
+//Named Pipe
+void openNamedPipe(HANDLE* hPipe, TCHAR* pipeName, DWORD accessMode);
+BOOL changePipeToMessageMode(HANDLE hPipe);
+
 #ifdef __cplusplus
 extern "C" {
 #endif

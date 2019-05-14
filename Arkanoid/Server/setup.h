@@ -6,6 +6,7 @@
 #include "gameLogic.h"
 #include <stdlib.h>
 
+//Number of total configurations in the configs file
 #define TOTAL_CONFIGS 8
 
 //Shared Memory
@@ -25,3 +26,7 @@ void convertStringToTopPlayers(TopPlayer* topPlayers, TCHAR* top10Value, DWORD* 
 
 //Events
 void createGameUpdateEvent(HANDLE* hGameUpdateEvent);
+
+//Named Pipes
+void createMessageNamedPipe(HANDLE* hPipe, TCHAR* pipeName, DWORD openMode, DWORD maxPlayers, DWORD bufferSize);
+BOOL newPlayerPipeConnection(HANDLE hPipe, LPOVERLAPPED lpo);

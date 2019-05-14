@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "gameLogic.h"
 #include "gameStructs.h"
+#include "messages.h"
 
 DWORD WINAPI GameLogic(LPVOID lpParam)
 {
@@ -29,14 +30,27 @@ DWORD WINAPI GameLogic(LPVOID lpParam)
 			counter++;
 		}
 
-		SetEvent(pGameVariables->hGameUpdateEvent);
-		ResetEvent(pGameVariables->hGameUpdateEvent);
+		sendGameUpdate(*pGameVariables);
 		Sleep(1000);
 	}
 
 	pGameData->gameStatus = GAME_OVER;
 
 	return 1;
+}
+
+void sendGameUpdate(GameVariables gameVariables)
+{
+	SetEvent(gameVariables.hGameUpdateEvent);
+	ResetEvent(gameVariables.hGameUpdateEvent);
+
+	for(int i=0; i < gameVariables.gameConfigs.maxPlayers; i++)
+	{
+		if(gameVariables.namedPipesData[i].userID != UNDEFINED_ID)
+		{
+			sendGameNamedPipe(*gameVariables.pGameData, &gameVariables.namedPipesData[i]);
+		}
+	}
 }
 
 void ballMovement(GameData* pGameData)

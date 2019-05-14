@@ -18,16 +18,24 @@
 #define DLL_IMP_API __declspec(dllimport)
 #endif
 
+//Shared Memory
 int loginSharedMemory(TCHAR* loginUsername);
 void sendMessageSharedMemory(int messageType);
 int receiveMessageSharedMemory(int messageType);
 void waitForResponseOnEvent();
 void logoutSharedMemory();
 
+//Named Pipe
+int loginNamedPipe(TCHAR* loginUsername);
+void sendMessageNamedPipe(int messageType);
+int receiveMessageNamedPipe(int messageType);
+void logoutNamedPipe();
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 	//Global DLL variables
+	extern DLL_IMP_API BOOL isLocalUser;
 	extern DLL_IMP_API int inGame;
 	extern DLL_IMP_API TCHAR username[TAM];
 	extern DLL_IMP_API TCHAR top10[TOP10_SIZE];

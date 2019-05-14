@@ -51,14 +51,18 @@ int _tmain(int argc, TCHAR* argv[])
 		&dwGameThreadId);			// returns the thread identifier 
 
 	//Thread to check if the server is shutting down
-	hServerShutdownThread = CreateThread(
-		NULL,						// default security attributes
-		0,							// use default stack size  
-		ServerShutdown,				// thread function name
-		NULL,						// argument to thread function 
-		0,							// use default creation flags 
-		&dwServerShutdownThreadId);	// returns the thread identifier 
-
+	//TODO: Find alternative for pipe
+	if(isLocalUser == TRUE)
+	{
+		hServerShutdownThread = CreateThread(
+			NULL,						// default security attributes
+			0,							// use default stack size  
+			ServerShutdown,				// thread function name
+			NULL,						// argument to thread function 
+			0,							// use default creation flags 
+			&dwServerShutdownThreadId);	// returns the thread identifier 
+	}
+	
 	int option;
 
 	do
@@ -111,7 +115,13 @@ DWORD WINAPI GameUpdate(LPVOID lpParam)
 
 DWORD WINAPI ServerShutdown(LPVOID lpParam)
 {
-	receiveMessage(LOGOUT);
+	if(isLocalUser == TRUE)
+	{
+		receiveMessage(LOGOUT);
+	} else {
+		//TODO: Add logout through named pipe
+	}
+	
 	keepAlive = FALSE;
 
 	//Simulates a key press of 9 + ENTER causing the gets to trigger and the main thread to end

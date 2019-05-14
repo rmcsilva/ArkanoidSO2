@@ -271,3 +271,59 @@ void createGameUpdateEvent(HANDLE* hGameUpdateEvent)
 		EVENT_GAME_UPDATE					 // object name
 	);
 }
+
+void createMessageNamedPipe(HANDLE* hPipe, TCHAR* pipeName, DWORD openMode, DWORD maxPlayers, DWORD bufferSize)
+{
+	//TODO: Add security attributes 
+
+	*hPipe = CreateNamedPipe(
+		pipeName,						// pipe name 
+		openMode |						// openMode access 
+		FILE_FLAG_OVERLAPPED,			// overlapped mode 
+		PIPE_TYPE_MESSAGE |				// message-type pipe 
+		PIPE_READMODE_MESSAGE |			// message-read mode
+		PIPE_ACCEPT_REMOTE_CLIENTS |	// accepts remote clients
+		PIPE_WAIT,						// blocking mode 
+		maxPlayers,						// number of instances 
+		bufferSize,						// output buffer size 
+		bufferSize,						// input buffer size 
+		0,								// client time-out 
+		NULL);							// default security attributes
+}
+
+BOOL newPlayerPipeConnection(HANDLE hPipe, LPOVERLAPPED lpo)
+{
+	BOOL fConnected, fPendingIO = FALSE;
+
+	// Start an overlapped connection for this pipe instance. 
+	fConnected = ConnectNamedPipe(hPipe, lpo);
+
+	// Overlapped ConnectNamedPipe should return zero. 
+	if (fConnected)
+	{
+		_tprintf(TEXT("ConnectNamedPipe failed with %d.\n"), GetLastError());
+		return 0;
+	}
+
+	switch (GetLastError())
+	{
+		// The overlapped connection in progress. 
+		case ERROR_IO_PENDING:
+			fPendingIO = TRUE;
+			break;
+
+		// Client is already connected, so signal an event. 
+		case ERROR_PIPE_CONNECTED:
+			if (SetEvent(lpo->hEvent))
+				break;
+
+		// If an error occurs during the connect operation... 
+		default:
+		{
+			_tprintf(TEXT("ConnectNamedPipe failed with %d.\n"), GetLastError());
+			return 0;
+		}
+	}
+
+	return fPendingIO;
+}

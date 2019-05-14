@@ -130,11 +130,13 @@
   <ItemGroup>
     <ClCompile Include="gameLogic.c" />
     <ClCompile Include="main.c" />
+    <ClCompile Include="namedPipeLogic.c" />
     <ClCompile Include="setup.c" />
     <ClCompile Include="ui.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gameLogic.h" />
+    <ClInclude Include="namedPipeLogic.h" />
     <ClInclude Include="setup.h" />
     <ClInclude Include="ui.h" />
   </ItemGroup>

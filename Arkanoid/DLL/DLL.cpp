@@ -10,7 +10,7 @@
 BOOL isLocalUser = TRUE;
 
 TCHAR username[TAM];
-int id = -1;
+int id = UNDEFINED_ID;
 BOOL inGame = FALSE;
 
 TCHAR top10[TOP10_SIZE];
@@ -45,6 +45,10 @@ TCHAR pipeClientRequestsName[MAX];
 TCHAR pipeServerResponsesName[MAX];
 TCHAR pipeGameName[MAX];
 
+HANDLE hClientRequestPipe;
+HANDLE hServerResponsePipe;
+HANDLE hGamePipe;
+
 int login(TCHAR* loginUsername, TCHAR* ip)
 {
 	if(ip == NULL)
@@ -60,7 +64,8 @@ int login(TCHAR* loginUsername, TCHAR* ip)
 		_stprintf_s(pipeGameName, bufferSize, NAMED_PIPE_GAME, ip);
 
 		_tprintf(TEXT("Client pipe: %s\nServer pipe: %s\nGame pipe: %s\n"), pipeClientRequestsName, pipeServerResponsesName, pipeGameName);
-		//TODO: Add pipe login
+		
+		return loginNamedPipe(loginUsername);
 	}
 }
 
@@ -71,7 +76,7 @@ void sendMessage(int messageType)
 		return sendMessageSharedMemory(messageType);
 	} else
 	{
-		//TODO: Add message by pipe
+		return sendMessageNamedPipe(messageType);
 	}
 }
 
@@ -82,7 +87,7 @@ int receiveMessage(int messageType)
 		return receiveMessageSharedMemory(messageType);
 	} else
 	{
-		//TODO: Receive message by pipe
+		return receiveMessageNamedPipe(messageType);
 	}
 }
 
@@ -95,6 +100,21 @@ int receiveBroadcast()
 		return pGameDataMemory->gameStatus;
 	} else
 	{
+		DWORD nBytes;
+		GameData gameData;
+
+		BOOL fSuccess = ReadFile(
+			hGamePipe,				// pipe handle 
+			&gameData,				// buffer to receive reply 
+			sizeof(gameData),		// size of buffer 
+			&nBytes,				// number of bytes read 
+			NULL);					// not overlapped 
+
+		//TODO: Add verifications
+
+		_tprintf(TEXT("\nBall position x: %d y: %d\n"), gameData.ball[0].position.x, gameData.ball[0].position.y);
+
+		return gameData.gameStatus;
 		//TODO: Add pipe broadcast
 	}
 	
@@ -107,7 +127,7 @@ void logout()
 		return logoutSharedMemory();
 	} else
 	{
-		//TODO: add pipe logout
+		return logoutNamedPipe();
 	}
 }
 
@@ -126,10 +146,6 @@ int loginSharedMemory(TCHAR* loginUsername)
 		_tprintf(TEXT("Error connecting to server!\n"));
 		return -1;
 	}
-
-	//Shared memory test
-	//_tprintf(TEXT("Client Request Memory Value: %d\n"), pClientRequestMemory->clientInput);
-	//_tprintf(TEXT("Server Request Memory Value: %d\n"), pServerResponseMemory->clientOutput);
 
 	createClientsRequestMutex(&hClientRequestMutex);
 	createServersResponseMutex(&hServerResponseMutex);
@@ -261,7 +277,7 @@ void waitForResponseOnEvent()
 
 void logoutSharedMemory()
 {
-	if (id != -1)
+	if (id != UNDEFINED_ID)
 	{
 		sendMessageSharedMemory(LOGOUT);
 	}
@@ -284,4 +300,146 @@ void logoutSharedMemory()
 
 	CloseHandle(hClientMessageCheckEvent);
 	CloseHandle(hGameUpdateEvent);
+}
+
+int loginNamedPipe(TCHAR* loginUsername)
+{
+	//Client Requests -> write access
+	openNamedPipe(&hClientRequestPipe, pipeClientRequestsName, GENERIC_WRITE);
+
+	if(hClientRequestPipe == INVALID_HANDLE_VALUE)
+	{
+		if (GetLastError() != ERROR_PIPE_BUSY)
+		{
+			_tprintf(TEXT("Could not open client request pipe. GLE=%d\n"), GetLastError());
+			return -1;
+		} else
+		{
+			_tprintf(TEXT("Server player limit reached! Try again later!\n"));
+			return -1;
+		}
+	}
+	
+	//Server Responses -> read access 
+	openNamedPipe(&hServerResponsePipe, pipeServerResponsesName, GENERIC_READ);
+
+	if (hServerResponsePipe == INVALID_HANDLE_VALUE)
+	{
+		if (GetLastError() != ERROR_PIPE_BUSY)
+		{
+			_tprintf(TEXT("Could not open server response pipe. GLE=%d\n"), GetLastError());
+			return -1;
+		} else
+		{
+			_tprintf(TEXT("Server player limit reached! Try again later!\n"));
+			return -1;
+		}
+	}
+
+	//Game Data -> read access 
+	openNamedPipe(&hGamePipe, pipeGameName, GENERIC_READ);
+
+	if (hGamePipe == INVALID_HANDLE_VALUE)
+	{
+		if (GetLastError() != ERROR_PIPE_BUSY)
+		{
+			_tprintf(TEXT("Could not open game data pipe. GLE=%d\n"), GetLastError());
+			return -1;
+		} else
+		{
+			_tprintf(TEXT("Server player limit reached! Try again later!\n"));
+			return -1;
+		}
+	}
+
+	// The pipe connected; change to message-read mode. 
+
+	if (changePipeToMessageMode(hClientRequestPipe) == FALSE)
+	{
+		return -1;
+	}
+
+	//if (changePipeToMessageMode(hServerResponsePipe) == FALSE)
+	//{
+	//	return -1;
+	//}
+
+	//if (changePipeToMessageMode(hGamePipe) == FALSE)
+	//{
+	//	return -1;
+	//}
+
+	sendMessageNamedPipe(LOGIN_REQUEST);
+
+	return 1;
+}
+
+void sendMessageNamedPipe(int messageType)
+{
+	DWORD nBytes;
+	ClientMessage clientRequest;
+
+	clientRequest.type = messageType;
+	_tcscpy_s(clientRequest.username, TAM, username);
+	clientRequest.id = id;
+
+	BOOL fSuccess = WriteFile(
+		hClientRequestPipe,     // pipe handle 
+		&clientRequest,         // message 
+		sizeof(clientRequest),  // message length 
+		&nBytes,				// bytes written 
+		NULL);                  // not overlapped 
+
+	if (!fSuccess)
+	{
+		_tprintf(TEXT("WriteFile to pipe failed. GLE=%d\n"), GetLastError());
+		return;
+	}
+}
+
+int receiveMessageNamedPipe(int messageType)
+{
+	DWORD nBytes;
+	ServerMessage serverResponse;
+
+	BOOL fSuccess = ReadFile(
+		hServerResponsePipe,    // pipe handle 
+		&serverResponse,		// buffer to receive reply 
+		sizeof(serverResponse), // size of buffer 
+		&nBytes,				// number of bytes read 
+		NULL);					// not overlapped 
+
+	//TODO: Add verifications
+
+	switch (messageType)
+	{
+		case LOGIN_REQUEST:
+			if (serverResponse.type == REQUEST_ACCEPTED)
+			{
+				id = serverResponse.id;
+			}
+			break;
+		case TOP10:
+			_tcscpy_s(top10, TOP10_SIZE, serverResponse.content);
+			break;
+		case LOGOUT:
+			if (serverResponse.type == LOGOUT)
+			{
+				return LOGOUT;
+			}
+	}
+
+	return serverResponse.type;
+}
+
+void logoutNamedPipe()
+{
+	if (id != UNDEFINED_ID)
+	{
+		sendMessageNamedPipe(LOGOUT);
+	}
+
+	CloseHandle(hClientRequestPipe);
+	CloseHandle(hServerResponsePipe);
+	CloseHandle(hGamePipe);
 }

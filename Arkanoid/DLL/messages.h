@@ -3,6 +3,9 @@
 #include "resourceConstants.h"
 #include "stdafx.h"
 
+//Initial ID
+#define UNDEFINED_ID -1
+
 //Server Response Messages
 #define REQUEST_ACCEPTED 0
 #define REQUEST_DENIED 1
