@@ -272,6 +272,99 @@ void createGameUpdateEvent(HANDLE* hGameUpdateEvent)
 	);
 }
 
+int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeEvents, int numPipes)
+{
+	TCHAR pipeClientRequestsName[MAX];
+	TCHAR pipeServerResponsesName[MAX];
+	TCHAR pipeGameName[MAX];
+
+	int bufferSize = MAX - 1;
+
+	TCHAR dot[] = TEXT(".");
+
+	_stprintf_s(pipeClientRequestsName, bufferSize, NAMED_PIPE_CLIENT_REQUESTS, dot);
+	_stprintf_s(pipeServerResponsesName, bufferSize, NAMED_PIPE_SERVER_RESPONSES, dot);
+	_stprintf_s(pipeGameName, bufferSize, NAMED_PIPE_GAME, dot);
+
+	for (int i = 0; i < numPipes; i++)
+	{
+		namedPipesData[i].userID = UNDEFINED_ID;
+		
+		hPipeEvents[i] = CreateEvent(
+			NULL,    // default security attribute 
+			TRUE,    // manual-reset event 
+			TRUE,    // initial state = signaled 
+			NULL);   // unnamed event object
+
+		if (hPipeEvents[i] == NULL)
+		{
+			_tprintf(TEXT("CreateEvent failed with %d.\n"), GetLastError());
+			return -1;
+		}
+
+		ZeroMemory(&namedPipesData[i].overlapped, sizeof(namedPipesData[i].overlapped));
+		namedPipesData[i].overlapped.hEvent = hPipeEvents[i];
+
+		createMessageNamedPipe(
+			&namedPipesData[i].hClientRequestsPipe,		// pipe handle
+			pipeClientRequestsName,						// pipe name 
+			PIPE_ACCESS_INBOUND,						// server -> read / client -> write access
+			numPipes,									// number of instances 
+			sizeof(ClientMessage));						// buffer size
+
+		if (namedPipesData[i].hClientRequestsPipe == INVALID_HANDLE_VALUE)
+		{
+			_tprintf(TEXT("CreateNamedPipe failed with %d.\n"), GetLastError());
+			return -1;
+		}
+
+		createMessageNamedPipe(
+			&namedPipesData[i].hServerResponsesPipe,	// pipe handle
+			pipeServerResponsesName,					// pipe name 
+			PIPE_ACCESS_OUTBOUND,						// client -> read / server -> write access 
+			numPipes,									// number of instances 
+			sizeof(ServerMessage));						// buffer size
+
+
+		if (namedPipesData[i].hServerResponsesPipe == INVALID_HANDLE_VALUE)
+		{
+			_tprintf(TEXT("CreateNamedPipe failed with %d.\n"), GetLastError());
+			return -1;
+		}
+
+		createMessageNamedPipe(
+			&namedPipesData[i].hGamePipe,		// pipe handle
+			pipeGameName,						// pipe name 
+			PIPE_ACCESS_OUTBOUND,				// client -> read / server -> write access 
+			numPipes,							// number of instances 
+			sizeof(GameData));					// buffer size
+
+		if (namedPipesData[i].hGamePipe == INVALID_HANDLE_VALUE)
+		{
+			_tprintf(TEXT("CreateNamedPipe failed with %d.\n"), GetLastError());
+			return -1;
+		}
+
+		namedPipesData[i].fPendingIO = newPlayerPipeConnection(
+			namedPipesData[i].hClientRequestsPipe,
+			&namedPipesData[i].overlapped);
+
+		namedPipesData[i].dwState = namedPipesData[i].fPendingIO
+			? CONNECTING_STATE :		// still connecting 
+			READING_REQUEST_STATE;		// ready to read clients request
+
+		newPlayerPipeConnection(
+			namedPipesData[i].hServerResponsesPipe,
+			&namedPipesData[i].overlapped);
+
+		newPlayerPipeConnection(
+			namedPipesData[i].hGamePipe,
+			&namedPipesData[i].overlapped);
+	}
+
+	return 1;
+}
+
 void createMessageNamedPipe(HANDLE* hPipe, TCHAR* pipeName, DWORD openMode, DWORD maxPlayers, DWORD bufferSize)
 {
 	//TODO: Add security attributes 

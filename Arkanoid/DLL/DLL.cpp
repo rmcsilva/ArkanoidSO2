@@ -100,22 +100,33 @@ int receiveBroadcast()
 		return pGameDataMemory->gameStatus;
 	} else
 	{
+		BOOL fSuccess;
 		DWORD nBytes;
 		GameData gameData;
 
-		BOOL fSuccess = ReadFile(
-			hGamePipe,				// pipe handle 
-			&gameData,				// buffer to receive reply 
-			sizeof(gameData),		// size of buffer 
-			&nBytes,				// number of bytes read 
-			NULL);					// not overlapped 
+		do
+		{
+			fSuccess = ReadFile(
+				hGamePipe,				// pipe handle 
+				&gameData,				// buffer to receive reply 
+				sizeof(gameData),		// size of buffer 
+				&nBytes,				// number of bytes read 
+				NULL);					// not overlapped 
 
-		//TODO: Add verifications
+			if (!fSuccess && GetLastError() != ERROR_MORE_DATA)
+				break;
 
-		_tprintf(TEXT("\nBall position x: %d y: %d\n"), gameData.ball[0].position.x, gameData.ball[0].position.y);
+			_tprintf(TEXT("\nBall position x: %d y: %d\n"), gameData.ball[0].position.x, gameData.ball[0].position.y);
+
+		} while (!fSuccess);  // repeat loop if ERROR_MORE_DATA 
+
+		if (!fSuccess)
+		{
+			_tprintf(TEXT("ReadFile from pipe failed. GLE=%d\n"), GetLastError());
+			return -1;
+		}
 
 		return gameData.gameStatus;
-		//TODO: Add pipe broadcast
 	}
 	
 }

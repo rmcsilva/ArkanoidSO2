@@ -28,5 +28,6 @@ void convertStringToTopPlayers(TopPlayer* topPlayers, TCHAR* top10Value, DWORD* 
 void createGameUpdateEvent(HANDLE* hGameUpdateEvent);
 
 //Named Pipes
+int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeEvents, int numPipes);
 void createMessageNamedPipe(HANDLE* hPipe, TCHAR* pipeName, DWORD openMode, DWORD maxPlayers, DWORD bufferSize);
 BOOL newPlayerPipeConnection(HANDLE hPipe, LPOVERLAPPED lpo);

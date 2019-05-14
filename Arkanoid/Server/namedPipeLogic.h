@@ -1,5 +1,6 @@
 #pragma once
 #include "gameStructs.h"
+#include "messages.h"
 
 //Named Pipe State
 #define CONNECTING_STATE 0 
@@ -19,3 +20,6 @@ typedef struct PipeData {
 }PipeData;
 
 void sendGameNamedPipe(GameData gameData, PipeData* pipeData);
+void receiveRequestNamedPipe(ClientMessage clientRequest, PipeData* namedPipeData);
+void sendResponseNamedPipe(ServerMessage serverResponse, PipeData* namedPipeData);
+void disconnectAndReconnectNamedPipes(PipeData* namedPipeData);

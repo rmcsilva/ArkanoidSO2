@@ -14,11 +14,7 @@
 #include <stdlib.h>
 
 //Named Pipes
-int setupNamedPipes();
 DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam);
-void receiveRequestNamedPipe(ClientMessage clientRequest, DWORD i);
-void sendResponseNamedPipe(ServerMessage serverResponse, DWORD i);
-void DisconnectAndReconnectNamedPipes(DWORD i);
 
 //Shared Memory
 DWORD WINAPI ClientRequestsSharedMemory(LPVOID lpParam);
@@ -64,6 +60,7 @@ int currentUsers = 0;
 int id = 0;
 int maxPlayers;
 Player* users;
+HANDLE hServerLogicMutex;
 
 //Thread Shutdown
 BOOL keepAlive = TRUE;
@@ -98,10 +95,22 @@ int _tmain(int argc, TCHAR* argv[])
 		return -1;
 	}
 
+	hServerLogicMutex = CreateMutex(
+		NULL,              // default security attributes
+		FALSE,             // initially not owned
+		NULL);             // unnamed mutex
+
 	//Setup Shared Memory
 	createClientsSharedMemory(&hClientRequestMemoryMap, sizeof(clientRequests));
 	createServersSharedMemory(&hServerResponseMemoryMap, sizeof(serverResponses));
 	createGameSharedMemory(&hGameDataMemoryMap, sizeof(GameData));
+
+	if(GetLastError() == ERROR_ALREADY_EXISTS)
+	{
+		_tprintf(TEXT("Server is already running!\n"));
+		_gettchar();
+		return -1;
+	}
 
 	if (hClientRequestMemoryMap == NULL || hServerResponseMemoryMap == NULL || hGameDataMemoryMap == NULL)
 	{
@@ -152,8 +161,10 @@ int _tmain(int argc, TCHAR* argv[])
 	maxPlayers = gameConfigs.maxPlayers;
 	users = malloc(sizeof(Player) * maxPlayers);
 
-	//TODO: Setup Named Pipes
-	setupNamedPipes();
+	hPipeEvents = malloc(sizeof(HANDLE) * maxPlayers);
+	namedPipesData = malloc(sizeof(PipeData) * maxPlayers);
+
+	setupNamedPipes(namedPipesData, hPipeEvents, maxPlayers);
 
 	//Thread to handle client requests through shared memory
 	hClientRequestSharedMemoryThread = CreateThread(
@@ -265,100 +276,6 @@ int _tmain(int argc, TCHAR* argv[])
 	closeHandles();
 }
 
-int setupNamedPipes()
-{
-	TCHAR pipeClientRequestsName[MAX];
-	TCHAR pipeServerResponsesName[MAX];
-	TCHAR pipeGameName[MAX];
-
-	int bufferSize = MAX - 1;
-
-	TCHAR dot[] = TEXT(".");
-
-	_stprintf_s(pipeClientRequestsName, bufferSize, NAMED_PIPE_CLIENT_REQUESTS, dot);
-	_stprintf_s(pipeServerResponsesName, bufferSize, NAMED_PIPE_SERVER_RESPONSES, dot);
-	_stprintf_s(pipeGameName, bufferSize, NAMED_PIPE_GAME, dot);
-
-	hPipeEvents = malloc(sizeof(HANDLE) * maxPlayers);
-	namedPipesData = malloc(sizeof(PipeData) * maxPlayers);
-
-	for(int i=0; i < maxPlayers; i++)
-	{
-		hPipeEvents[i] = CreateEvent(
-			NULL,    // default security attribute 
-			TRUE,    // manual-reset event 
-			TRUE,    // initial state = signaled 
-			NULL);   // unnamed event object
-
-		if (hPipeEvents[i] == NULL)
-		{
-			printf("CreateEvent failed with %d.\n", GetLastError());
-			return -1;
-		}
-
-		ZeroMemory(&namedPipesData[i].overlapped, sizeof(namedPipesData[i].overlapped));
-		namedPipesData[i].overlapped.hEvent = hPipeEvents[i];
-
-		createMessageNamedPipe(
-			&namedPipesData[i].hClientRequestsPipe,		// pipe handle
-			pipeClientRequestsName,						// pipe name 
-			PIPE_ACCESS_INBOUND,						// server -> read / client -> write access
-			maxPlayers,									// number of instances 
-			sizeof(ClientMessage));						// buffer size
-
-		if (namedPipesData[i].hClientRequestsPipe == INVALID_HANDLE_VALUE)
-		{
-			printf("CreateNamedPipe failed with %d.\n", GetLastError());
-			return -1;
-		}
-
-		createMessageNamedPipe(
-			&namedPipesData[i].hServerResponsesPipe,	// pipe handle
-			pipeServerResponsesName,					// pipe name 
-			PIPE_ACCESS_OUTBOUND,						// client -> read / server -> write access 
-			maxPlayers,									// number of instances 
-			sizeof(ServerMessage));						// buffer size
-	
-	
-		if (namedPipesData[i].hServerResponsesPipe == INVALID_HANDLE_VALUE)
-		{
-			printf("CreateNamedPipe failed with %d.\n", GetLastError());
-			return -1;
-		}
-
-		createMessageNamedPipe(
-			&namedPipesData[i].hGamePipe,		// pipe handle
-			pipeGameName,						// pipe name 
-			PIPE_ACCESS_OUTBOUND,				// client -> read / server -> write access 
-			maxPlayers,							// number of instances 
-			sizeof(GameData));					// buffer size
-
-		if (namedPipesData[i].hGamePipe == INVALID_HANDLE_VALUE)
-		{
-			printf("CreateNamedPipe failed with %d.\n", GetLastError());
-			return -1;
-		}
-
-		namedPipesData[i].fPendingIO = newPlayerPipeConnection(
-			namedPipesData[i].hClientRequestsPipe,
-			&namedPipesData[i].overlapped);
-
-		namedPipesData[i].dwState = namedPipesData[i].fPendingIO
-			? CONNECTING_STATE :		// still connecting 
-			READING_REQUEST_STATE;		// ready to read clients request
-
-		newPlayerPipeConnection(
-			namedPipesData[i].hServerResponsesPipe,
-			&namedPipesData[i].overlapped);
-
-		newPlayerPipeConnection(
-			namedPipesData[i].hGamePipe,
-			&namedPipesData[i].overlapped);
-	}
-
-	return 1;
-}
-
 DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam)
 {
 	DWORD dwWait, nBytes, readBytes, dwErr;
@@ -382,7 +299,7 @@ DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam)
 
 		if (i < 0 || i >(maxPlayers - 1))
 		{
-			printf("Index out of range.\n");
+			_tprintf(TEXT("Index out of range.\n"));
 			return 0;
 		}
 
@@ -402,7 +319,7 @@ DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam)
 				case CONNECTING_STATE:
 					if (!fSuccess)
 					{
-						printf("Error %d.\n", GetLastError());
+						_tprintf(TEXT("Pipe Connecting State -> Error %d.\n"), GetLastError());
 						return 0;
 					}
 					namedPipesData[i].dwState = READING_REQUEST_STATE;
@@ -410,20 +327,22 @@ DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam)
 
 				// Pending read request operation 
 				case READING_REQUEST_STATE:
+					//TODO: Same verifications as bellow?
 					if (!fSuccess || nBytes == 0)
 					{
-						DisconnectAndReconnectNamedPipes(i);
+						disconnectAndReconnectNamedPipes(&namedPipesData[i]);
 						continue;
 					}
+					namedPipesData[i].dwState = READING_REQUEST_STATE;
 					//Handle Client Request 
-					receiveRequestNamedPipe(clientRequest, i);
+					receiveRequestNamedPipe(clientRequest, &namedPipesData[i]);
 					continue;
 
 				// Pending write response operation 
 				case WRITING_RESPONSE_STATE:
 					if (!fSuccess || nBytes != sizeof(ServerMessage))
 					{
-						DisconnectAndReconnectNamedPipes(i);
+						disconnectAndReconnectNamedPipes(&namedPipesData[i]);
 						continue;
 					}
 					namedPipesData[i].dwState = READING_REQUEST_STATE;
@@ -432,7 +351,7 @@ DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam)
 				case WRITING_GAME_STATE:
 					if (!fSuccess || nBytes != sizeof(GameData))
 					{
-						DisconnectAndReconnectNamedPipes(i);
+						disconnectAndReconnectNamedPipes(&namedPipesData[i]);
 						continue;
 					}
 					namedPipesData[i].dwState = READING_REQUEST_STATE;
@@ -440,7 +359,7 @@ DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam)
 
 				default:
 				{
-					printf("Invalid pipe state.\n");
+					_tprintf(TEXT("Invalid pipe state.\n"));
 					return 0;
 				}
 			}
@@ -460,7 +379,7 @@ DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam)
 		{
 			namedPipesData[i].fPendingIO = FALSE;
 			//TODO: Add mutex?
-			receiveRequestNamedPipe(clientRequest, i);
+			receiveRequestNamedPipe(clientRequest, &namedPipesData[i]);
 			continue;
 		}
 
@@ -473,112 +392,12 @@ DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam)
 		}
 
 		// An error occurred; disconnect from the client. 
-		DisconnectAndReconnectNamedPipes(i);
+		disconnectAndReconnectNamedPipes(&namedPipesData[i]);
 	}
 
 	return 1;
 }
 
-void receiveRequestNamedPipe(ClientMessage clientRequest, DWORD i)
-{
-	ServerMessage serverResponse;
-
-	switch (clientRequest.type)
-	{
-		case LOGIN_REQUEST:
-			serverResponse = userLogin(&clientRequest);
-			sendResponseNamedPipe(serverResponse, i);
-			if(serverResponse.type == REQUEST_ACCEPTED)
-			{
-				namedPipesData[i].userID = serverResponse.id;
-			}
-			showResponseMessageInformation(serverResponse, clientRequest.type);
-			break;
-		case TOP10:
-			serverResponse = sendTop10(&clientRequest);
-			sendResponseNamedPipe(serverResponse, i);
-			showResponseMessageInformation(serverResponse, clientRequest.type);
-			break;
-		case LOGOUT:
-			userLogout(clientRequest.id);
-			DisconnectAndReconnectNamedPipes(i);
-			break;
-		//TODO: implement
-		default:
-			break;
-	}
-}
-
-void sendResponseNamedPipe(ServerMessage serverResponse, DWORD i)
-{
-	DWORD nBytes, dwErr;
-
-	BOOL fSuccess = WriteFile(
-		namedPipesData[i].hServerResponsesPipe,
-		&serverResponse,
-		sizeof(serverResponse),
-		&nBytes,
-		&namedPipesData[i].overlapped);
-
-	// The write operation completed successfully. 
-	if (fSuccess && nBytes == sizeof(serverResponse))
-	{
-		namedPipesData[i].fPendingIO = FALSE;
-		namedPipesData[i].dwState = READING_REQUEST_STATE;
-		return;
-	}
-
-	// The write operation is still pending. 
-	dwErr = GetLastError();
-	if (!fSuccess && (dwErr == ERROR_IO_PENDING))
-	{
-		namedPipesData[i].fPendingIO = TRUE;
-		namedPipesData[i].dwState = WRITING_RESPONSE_STATE;
-		return;
-	}
-
-	// An error occurred; disconnect from the client.
-	DisconnectAndReconnectNamedPipes(i);
-}
-
-void DisconnectAndReconnectNamedPipes(DWORD i)
-{
-	// Disconnect the pipe instance. 
-
-	if (!DisconnectNamedPipe(namedPipesData[i].hClientRequestsPipe))
-	{
-		printf("DisconnectNamedPipe hClientRequestsPipe failed with %d.\n", GetLastError());
-	}
-
-	if (!DisconnectNamedPipe(namedPipesData[i].hServerResponsesPipe))
-	{
-		printf("DisconnectNamedPipe hServerResponsesPipe failed with %d.\n", GetLastError());
-	}
-
-	if (!DisconnectNamedPipe(namedPipesData[i].hGamePipe))
-	{
-		printf("DisconnectNamedPipe hGamePipe failed with %d.\n", GetLastError());
-	}
-
-	namedPipesData[i].userID = UNDEFINED_ID;
-
-	// Call a subroutine to connect to the new client. 
-	namedPipesData[i].fPendingIO = newPlayerPipeConnection(
-		namedPipesData[i].hClientRequestsPipe,
-		&namedPipesData[i].overlapped);
-
-	namedPipesData[i].dwState = namedPipesData[i].fPendingIO
-		? CONNECTING_STATE :		// still connecting  
-		READING_REQUEST_STATE;		// ready to read clients request
-
-	newPlayerPipeConnection(
-		namedPipesData[i].hServerResponsesPipe,
-		&namedPipesData[i].overlapped);
-
-	newPlayerPipeConnection(
-		namedPipesData[i].hGamePipe,
-		&namedPipesData[i].overlapped);
-}
 
 DWORD WINAPI ClientRequestsSharedMemory(LPVOID lpParam)
 {
@@ -657,15 +476,19 @@ ServerMessage userLogin(ClientMessage* clientMessage)
 
 		if(validUser == TRUE)
 		{
-			users[currentUsers].id = id;
 			serverResponse.id = id;
 			_tcscpy_s(users[currentUsers].username, TAM, serverResponse.username);
 			serverResponse.type = REQUEST_ACCEPTED;
+
+			WaitForSingleObject(hServerLogicMutex, INFINITE);
+
+			users[currentUsers].id = id;
 			//TODO: Verify when game is going 
 			pServerResponseMemory->numUsers++;
 			currentUsers++;
 			id++;
 
+			ReleaseMutex(hServerLogicMutex);
 			return serverResponse;
 		}
 
@@ -697,14 +520,18 @@ void userLogout(int userID)
 		if(users[i].id == userID)
 		{
 			_tprintf(TEXT("\n\nUser %s logged out\n\n"), users[i].username);
+			WaitForSingleObject(hServerLogicMutex, INFINITE);
+
 			currentUsers--;
 			for(int j = i; j < currentUsers; j++)
 			{
 				users[j].id = users[j+1].id;
 				users[j].score = users[j+1].score;
-				users[j].inGame = users[j + 1].inGame;
+				users[j].inGame = users[j+1].inGame;
 				_tcscpy_s(users[j].username, TAM, users[j+1].username);
 			}
+
+			ReleaseMutex(hServerLogicMutex);
 			break;
 		}
 	}
@@ -723,7 +550,7 @@ void serverShutdownClients()
 	{
 		if(namedPipesData[i].userID != UNDEFINED_ID)
 		{
-			sendResponseNamedPipe(logout, i);
+			sendResponseNamedPipe(logout, &namedPipesData[i]);
 		}
 	}
 }
