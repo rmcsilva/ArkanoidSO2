@@ -5,6 +5,8 @@
 #include "gameConstants.h"
 #include "gameLogic.h"
 #include <stdlib.h>
+#include <strsafe.h>
+#include <aclapi.h>
 
 //Number of total configurations in the configs file
 #define TOTAL_CONFIGS 8
@@ -31,3 +33,6 @@ void createGameUpdateEvent(HANDLE* hGameUpdateEvent);
 int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeEvents, int numPipes);
 void createMessageNamedPipe(HANDLE* hPipe, TCHAR* pipeName, DWORD openMode, DWORD maxPlayers, DWORD bufferSize);
 BOOL newPlayerPipeConnection(HANDLE hPipe, LPOVERLAPPED lpo);
+
+//Security Attributes
+void setupPipeSecurityAttributes(SECURITY_ATTRIBUTES * sa);
