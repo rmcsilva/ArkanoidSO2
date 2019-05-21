@@ -1,7 +1,7 @@
 #pragma once
 //Game dimensions
-#define DIM_X_FRAME 1024
-#define DIM_Y_FRAME 768
+#define DIM_X_FRAME 800
+#define DIM_Y_FRAME 600
 
 //Game constants 
 #define MAX_PLAYERS 20

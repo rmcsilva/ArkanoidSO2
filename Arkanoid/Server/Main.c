@@ -238,6 +238,13 @@ int _tmain(int argc, TCHAR* argv[])
 			case LIST_USERS:
 				showConnectedUsers(users, currentUsers);
 				break;
+			case SHUTDOWN:
+				if(pGameDataMemory->gameStatus == GAME_ACTIVE)
+				{
+					_tprintf(TEXT("Cannot shutdown server! Game is still going!\n"));
+					option = -1;
+					break;
+				}
 			default:
 				break;
 		}
@@ -539,18 +546,16 @@ void userLogout(int userID)
 
 void serverShutdownClients()
 {
-	ServerMessage logout;
-	logout.type = LOGOUT;
-	logout.id = UNDEFINED_ID;
-	TCHAR empty[] = TEXT("");
-	_tcscpy_s(logout.username, sizeof(empty), empty);
-	_tcscpy_s(logout.content, sizeof(empty), empty);
-	sendResponseSharedMemory(logout);
-	for(int i = 0; i < maxPlayers; i++)
+	pGameDataMemory->gameStatus = LOGOUT;
+
+	SetEvent(hGameUpdateEvent);
+	ResetEvent(hGameUpdateEvent);
+
+	for (int i = 0; i < maxPlayers; i++)
 	{
-		if(namedPipesData[i].userID != UNDEFINED_ID)
+		if (namedPipesData[i].userID != UNDEFINED_ID)
 		{
-			sendResponseNamedPipe(logout, &namedPipesData[i]);
+			sendGameNamedPipe(*pGameDataMemory, &namedPipesData[i]);
 		}
 	}
 }

@@ -6,17 +6,15 @@
 #include "DLL.h"
 
 DWORD WINAPI GameUpdate(LPVOID lpParam);
-DWORD WINAPI ServerShutdown(LPVOID lpParam);
+void serverShutdown();
 
 BOOL keepAlive = TRUE;
+BOOL serverLogout = FALSE;
 
 int _tmain(int argc, TCHAR* argv[])
 {
 	HANDLE hGameThread;
 	DWORD dwGameThreadId;
-
-	HANDLE hServerShutdownThread;
-	DWORD dwServerShutdownThreadId;
 
 #ifdef UNICODE
 	_setmode(_fileno(stdin), _O_WTEXT);
@@ -49,19 +47,6 @@ int _tmain(int argc, TCHAR* argv[])
 		NULL,						// argument to thread function 
 		0,							// use default creation flags 
 		&dwGameThreadId);			// returns the thread identifier 
-
-	//Thread to check if the server is shutting down
-	//TODO: Find alternative for pipe
-	if(isLocalUser == TRUE)
-	{
-		hServerShutdownThread = CreateThread(
-			NULL,						// default security attributes
-			0,							// use default stack size  
-			ServerShutdown,				// thread function name
-			NULL,						// argument to thread function 
-			0,							// use default creation flags 
-			&dwServerShutdownThreadId);	// returns the thread identifier 
-	}
 	
 	int option;
 
@@ -91,14 +76,29 @@ int _tmain(int argc, TCHAR* argv[])
 	TerminateThread(hGameThread, 1);
 	WaitForSingleObject(hGameThread, INFINITE);
 
-	logout();
+	if(serverLogout == FALSE)
+	{
+		logout();
+	}
 }
 
 DWORD WINAPI GameUpdate(LPVOID lpParam)
 {
+	int status;
 
-	while (receiveBroadcast() != GAME_OVER)
+	while (TRUE)
 	{
+		status = receiveBroadcast();
+
+		if(status == GAME_OVER)
+		{
+			break;
+		} else if (status == LOGOUT)
+		{ 
+			serverShutdown();
+			inGame = FALSE;
+			return -1;
+		}
 		//TODO: Update GUI
 		//Export the game memory pointer and update?
 	}
@@ -113,15 +113,9 @@ DWORD WINAPI GameUpdate(LPVOID lpParam)
 	return 1;
 }
 
-DWORD WINAPI ServerShutdown(LPVOID lpParam)
+void serverShutdown()
 {
-	if(isLocalUser == TRUE)
-	{
-		receiveMessage(LOGOUT);
-	} else {
-		//TODO: Add logout through named pipe
-	}
-	
+	serverLogout = TRUE;
 	keepAlive = FALSE;
 
 	//Simulates a key press of 9 + ENTER causing the gets to trigger and the main thread to end
@@ -146,6 +140,4 @@ DWORD WINAPI ServerShutdown(LPVOID lpParam)
 	ir[1].Event.KeyEvent.wVirtualScanCode = MapVirtualKey(VK_RETURN, MAPVK_VK_TO_VSC);
 
 	WriteConsoleInput(hStdin, ir, 2, &dwTmp);
-
-	return 1;
 }
