@@ -27,12 +27,21 @@
     <ClInclude Include="ClientGUI.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="constants.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="setup.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ClientGUI.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="stdafx.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="setup.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -46,6 +55,12 @@
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="ClientGUI.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="ArkanoidGameLayout.BMP">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="logo.ico">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

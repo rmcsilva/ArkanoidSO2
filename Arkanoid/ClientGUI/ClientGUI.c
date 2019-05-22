@@ -11,6 +11,8 @@
 #include <winuser.h>
 #include "DLL.h"
 #include "util.h"
+#include "Constants.h"
+#include "setup.h"
 
 #define MAX_LOADSTRING 100
 
@@ -23,14 +25,20 @@ BOOL shutdown = FALSE;							// used to signal errors that cause the server to s
 HANDLE hGameThread;
 DWORD dwGameThreadId;
 
-DWORD mainThreadId;
+DWORD mainThreadId;								
+
+HANDLE hRegistryKey;
+
+TCHAR rightMovementKey;
+TCHAR leftMovementKey;
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK	loginEventsDialog(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam);
+INT_PTR CALLBACK	loginEventsDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+INT_PTR CALLBACK	settingsEventsDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 DWORD WINAPI		GameUpdate(LPVOID lpParam);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -89,12 +97,12 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.cbClsExtra     = 0;
     wcex.cbWndExtra     = 0;
     wcex.hInstance      = hInstance;
-    wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_CLIENTGUI));
+    wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_LOGO));
     wcex.hCursor        = LoadCursor(NULL, IDC_ARROW);
     wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
     wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_CLIENTGUI);
     wcex.lpszClassName  = szWindowClass;
-    wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
+    wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_LOGO));
 
     return RegisterClassExW(&wcex);
 }
@@ -114,7 +122,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    hInst = hInstance; // Store instance handle in our global variable
 
    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, CW_USEDEFAULT, DIM_X_FRAME, DIM_Y_FRAME, NULL, NULL, hInstance, NULL);
+      CW_USEDEFAULT, CW_USEDEFAULT, DIM_X_FRAME, DIM_Y_FRAME + 55, NULL, NULL, hInstance, NULL);
 
    if (!hWnd)
    {
@@ -162,14 +170,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 
+		setupMovementKeys(&hRegistryKey, &rightMovementKey, &leftMovementKey);
+
 		//Thread to handle the game updates
 		hGameThread = CreateThread(
 			NULL,						// default security attributes
-			0,							// use default stack size  
+			0,				// use default stack size  
 			GameUpdate,					// thread function name
-			(LPVOID)&hWnd,						// argument to thread function 
-			0,							// use default creation flags 
-			&dwGameThreadId);			// returns the thread identifier 
+			NULL,						// argument to thread function 
+			0,				// use default creation flags 
+			&dwGameThreadId);			// returns the thread identifier
 		break;
     case WM_COMMAND:
         {
@@ -180,9 +190,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case IDM_ABOUT:
                 DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
                 break;
-            case IDM_EXIT:
-                DestroyWindow(hWnd);
+            case IDM_SETTINGS:
+				DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTINGS), hWnd, settingsEventsDialog);
                 break;
+			case IDM_REQUESTTOP10:
+				//TODO: Complete
+				break;
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
             }
@@ -192,6 +205,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
+			HBITMAP hBitMap;
+			RECT rt;
+			GetClientRect(hWnd, &rt);
+			hBitMap = LoadBitmap(hInst, MAKEINTRESOURCE(IDB_ARKANOID_GAME));
+			HDC hmemdc = CreateCompatibleDC(hdc);
+			SelectObject(hmemdc, hBitMap);
+			BitBlt(hdc, 0,0, DIM_X_FRAME, DIM_Y_FRAME, hmemdc, 0, 0, SRCCOPY);
+			DeleteObject(hBitMap);
+			DeleteDC(hmemdc);
             // TODO: Add any drawing code that uses hdc here...
             EndPaint(hWnd, &ps);
         }
@@ -282,6 +304,63 @@ INT_PTR CALLBACK loginEventsDialog(HWND hDlg, UINT message, WPARAM wParam, LPARA
 			if (status == -1) {
 				shutdown = TRUE;
 			}
+
+			EndDialog(hDlg, LOWORD(wParam));
+
+			return (INT_PTR)TRUE;
+			break;
+		case IDCANCEL:
+			SendMessage(hDlg, WM_CLOSE, 1, 1);
+			return (INT_PTR)TRUE;
+			break;
+		}
+		break;
+	}
+	return (INT_PTR)FALSE;
+}
+
+INT_PTR CALLBACK settingsEventsDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	TCHAR rightKey[2];
+	TCHAR leftKey[2];
+
+	UNREFERENCED_PARAMETER(lParam);
+	switch (message)
+	{
+	case WM_INITDIALOG:
+		rightKey[0] = rightMovementKey; rightKey[1] = TEXT('\0');
+		leftKey[0] = leftMovementKey; leftKey[1] = TEXT('\0');
+		SetDlgItemText(hDlg, IDC_RIGHT, rightKey);
+		SetDlgItemText(hDlg, IDC_LEFT, leftKey);
+		return (INT_PTR)TRUE;
+
+	case WM_CLOSE:
+		if (MessageBox(hDlg, TEXT("Discard settings?"), TEXT("Quit Settings"), MB_YESNO) == IDYES)
+		{
+			EndDialog(hDlg, LOWORD(wParam));
+		}
+		return (INT_PTR)TRUE;
+
+	case WM_COMMAND:
+		switch (LOWORD(wParam)) {
+		case IDOK:
+			GetDlgItemText(hDlg, IDC_RIGHT, rightKey, 2);
+			GetDlgItemText(hDlg, IDC_LEFT, leftKey, 2);
+
+			if (_tcslen(rightKey) == 0 || _tcslen(leftKey) == 0)
+			{
+				break;
+			}
+
+			if(rightKey[0] == leftKey[0])
+			{
+				break;
+			}
+
+			rightMovementKey = _totupper(rightKey[0]);
+			leftMovementKey = _totupper(leftKey[0]);
+
+			saveMovementKeys(&hRegistryKey, &rightMovementKey, &leftMovementKey);
 
 			EndDialog(hDlg, LOWORD(wParam));
 

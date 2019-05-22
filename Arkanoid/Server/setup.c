@@ -195,11 +195,11 @@ void createServersResponseSemaphores(HANDLE* hServerResponseSemaphoreItems, HAND
 		SEMAPHORE_SERVER_RESPONSE_EMPTY);    // named semaphore
 }
 
-int setupRegistryTopPlayers(HANDLE* hResgistryTop10Key, TCHAR* top10Value, DWORD* playerCount)
+int setupRegistryTopPlayers(HANDLE* hRegistryTop10Key, TCHAR* top10Value, DWORD* playerCount)
 {
 	DWORD registryStatus, size;
 	//Create/open a key in HKEY_CURRENT_USER\Software\ArkanoidGame
-	if (RegCreateKeyEx(HKEY_CURRENT_USER, REGISTRY_TOP10_PATH, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, hResgistryTop10Key, &registryStatus) != ERROR_SUCCESS) {
+	if (RegCreateKeyEx(HKEY_CURRENT_USER, REGISTRY_TOP10_PATH, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, hRegistryTop10Key, &registryStatus) != ERROR_SUCCESS) {
 		_tprintf(TEXT("Error creating/opening registry key(%d)\n"), GetLastError());
 		return -1;
 	}
@@ -210,12 +210,12 @@ int setupRegistryTopPlayers(HANDLE* hResgistryTop10Key, TCHAR* top10Value, DWORD
 			_tprintf(TEXT("Key: HKEY_CURRENT_USER\\Software\\ArkanoidGame created\n"));
 			//TODO: Remove Dummy Values
 			//Create value "TOP10" = "Dummy Value"
-			RegSetValueEx(*hResgistryTop10Key, TOP10_REGISTRY_VALUE, 0, REG_SZ, (LPBYTE)TOP10_DUMMY_VALUE, _tcslen(TOP10_DUMMY_VALUE) * sizeof(TCHAR));
+			RegSetValueEx(*hRegistryTop10Key, TOP10_REGISTRY_VALUE, 0, REG_SZ, (LPBYTE)TOP10_DUMMY_VALUE, _tcslen(TOP10_DUMMY_VALUE) * sizeof(TCHAR));
 			_tcscpy_s(top10Value, TOP10_SIZE, TOP10_DUMMY_VALUE);
 
 			//Create value "TOP10PlayerCount" = 3
 			*playerCount = 3;
-			RegSetValueEx(*hResgistryTop10Key, TOP10_PLAYER_COUNT, 0, REG_DWORD, (LPBYTE)playerCount, sizeof(DWORD));
+			RegSetValueEx(*hRegistryTop10Key, TOP10_PLAYER_COUNT, 0, REG_DWORD, (LPBYTE)playerCount, sizeof(DWORD));
 
 			_tprintf(TEXT("Values TOP10 and TOP10PlayerCount saved\n"));
 		}
@@ -225,12 +225,12 @@ int setupRegistryTopPlayers(HANDLE* hResgistryTop10Key, TCHAR* top10Value, DWORD
 
 			//Read TOP10 value
 			size = TOP10_SIZE;
-			RegQueryValueEx(*hResgistryTop10Key, TOP10_REGISTRY_VALUE, NULL, NULL, (LPBYTE)top10Value, &size);
+			RegQueryValueEx(*hRegistryTop10Key, TOP10_REGISTRY_VALUE, NULL, NULL, (LPBYTE)top10Value, &size);
 			top10Value[size / sizeof(TCHAR)] = '\0';
 
 			//Read TOP10PlayerCount value
 			size = sizeof(*playerCount);
-			RegQueryValueEx(*hResgistryTop10Key, TOP10_PLAYER_COUNT, NULL, NULL, (LPBYTE)playerCount, &size);
+			RegQueryValueEx(*hRegistryTop10Key, TOP10_PLAYER_COUNT, NULL, NULL, (LPBYTE)playerCount, &size);
 
 			_tprintf(TEXT("Read from Registry:%s\n"), top10Value);
 		}

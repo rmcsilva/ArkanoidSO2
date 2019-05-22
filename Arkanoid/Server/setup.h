@@ -23,7 +23,7 @@ void createClientsRequestSemaphores(HANDLE* hClientRequestSemaphoreItems, HANDLE
 void createServersResponseSemaphores(HANDLE* hServerResponseSemaphoreItems, HANDLE* hServerResponseSemaphoreEmpty);
 
 //Registry
-int setupRegistryTopPlayers(HANDLE* hResgistryTop10Key, TCHAR* top10Value, DWORD* playerCount);
+int setupRegistryTopPlayers(HANDLE* hRegistryTop10Key, TCHAR* top10Value, DWORD* playerCount);
 void convertStringToTopPlayers(TopPlayer* topPlayers, TCHAR* top10Value, DWORD* playerCount);
 
 //Events
