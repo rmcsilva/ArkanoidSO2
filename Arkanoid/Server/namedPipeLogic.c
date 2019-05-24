@@ -5,6 +5,7 @@
 
 ServerMessage userLogin(ClientMessage* clientMessage);
 ServerMessage sendTop10(ClientMessage* clientMessage);
+void movePlayerBarrier(int playerId, int direction);
 void userLogout(int userID);
 
 void sendGameNamedPipe(GameData gameData, PipeData* pipeData)
@@ -16,13 +17,12 @@ void sendGameNamedPipe(GameData gameData, PipeData* pipeData)
 		&gameData,
 		sizeof(gameData),
 		&nBytes,
-		&pipeData->overlapped);
+		&pipeData->overlappedGame);
 
 	// The write operation completed successfully. 
 	if (fSuccess && nBytes == sizeof(gameData))
 	{
-		pipeData->fPendingIO = FALSE;
-		pipeData->dwState = READING_REQUEST_STATE;
+		pipeData->fPendingIOGame = FALSE;
 		return;
 	}
 
@@ -30,8 +30,7 @@ void sendGameNamedPipe(GameData gameData, PipeData* pipeData)
 	dwErr = GetLastError();
 	if (!fSuccess && (dwErr == ERROR_IO_PENDING))
 	{
-		pipeData->fPendingIO = TRUE;
-		pipeData->dwState = WRITING_GAME_STATE;
+		pipeData->fPendingIOGame = TRUE;
 		return;
 	}
 
@@ -60,6 +59,12 @@ void receiveRequestNamedPipe(ClientMessage clientRequest, PipeData* namedPipeDat
 		sendResponseNamedPipe(serverResponse, namedPipeData);
 		showResponseMessageInformation(serverResponse, clientRequest.type);
 		break;
+	case MOVE_RIGHT:
+		movePlayerBarrier(clientRequest.id, MOVE_RIGHT);
+		break;
+	case MOVE_LEFT:
+		movePlayerBarrier(clientRequest.id, MOVE_LEFT);
+		break;
 	case LOGOUT:
 		userLogout(clientRequest.id);
 		disconnectAndReconnectNamedPipes(namedPipeData);
@@ -79,13 +84,13 @@ void sendResponseNamedPipe(ServerMessage serverResponse, PipeData* namedPipeData
 		&serverResponse,
 		sizeof(serverResponse),
 		&nBytes,
-		&namedPipeData->overlapped);
+		&namedPipeData->overlappedRequests);
 
 	// The write operation completed successfully. 
 	if (fSuccess && nBytes == sizeof(serverResponse))
 	{
-		namedPipeData->fPendingIO = FALSE;
-		namedPipeData->dwState = READING_REQUEST_STATE;
+		namedPipeData->fPendingIORequests = FALSE;
+		namedPipeData->dwStateRequests = READING_REQUEST_STATE;
 		return;
 	}
 
@@ -93,8 +98,8 @@ void sendResponseNamedPipe(ServerMessage serverResponse, PipeData* namedPipeData
 	dwErr = GetLastError();
 	if (!fSuccess && (dwErr == ERROR_IO_PENDING))
 	{
-		namedPipeData->fPendingIO = TRUE;
-		namedPipeData->dwState = WRITING_RESPONSE_STATE;
+		namedPipeData->fPendingIORequests = TRUE;
+		namedPipeData->dwStateRequests = WRITING_RESPONSE_STATE;
 		return;
 	}
 
@@ -123,19 +128,23 @@ void disconnectAndReconnectNamedPipes(PipeData* namedPipeData)
 	namedPipeData->userID = UNDEFINED_ID;
 
 	// Call a subroutine to connect to the new client. 
-	namedPipeData->fPendingIO = newPlayerPipeConnection(
+	namedPipeData->fPendingIORequests = newPlayerPipeConnection(
 		namedPipeData->hClientRequestsPipe,
-		&namedPipeData->overlapped);
+		&namedPipeData->overlappedRequests);
 
-	namedPipeData->dwState = namedPipeData->fPendingIO
+	namedPipeData->dwStateRequests = namedPipeData->fPendingIORequests
 		? CONNECTING_STATE :		// still connecting  
 		READING_REQUEST_STATE;		// ready to read clients request
 
 	newPlayerPipeConnection(
 		namedPipeData->hServerResponsesPipe,
-		&namedPipeData->overlapped);
+		&namedPipeData->overlappedRequests);
 
-	newPlayerPipeConnection(
+	namedPipeData->fPendingIOGame = newPlayerPipeConnection(
 		namedPipeData->hGamePipe,
-		&namedPipeData->overlapped);
+		&namedPipeData->overlappedGame);
+
+	namedPipeData->dwStateGame = namedPipeData->fPendingIOGame
+		? CONNECTING_STATE :		// still connecting 
+		WRITING_GAME_STATE;			// ready to read clients request
 }

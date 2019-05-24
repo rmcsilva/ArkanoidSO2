@@ -15,6 +15,7 @@
 
 //Named Pipes
 DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam);
+DWORD WINAPI GameUpdateNamedPipe(LPVOID lpParam);
 
 //Shared Memory
 DWORD WINAPI ClientRequestsSharedMemory(LPVOID lpParam);
@@ -23,16 +24,15 @@ void sendResponseSharedMemory(ServerMessage serverMessage);
 //Server logic
 ServerMessage userLogin(ClientMessage* clientMessage);
 ServerMessage sendTop10(ClientMessage* clientMessage);
+void movePlayerBarrier(int playerId, int direction);
 void userLogout(int userID);
 
 void serverShutdownClients();
 void closeHandles();
 
+//Shared Memory
 HANDLE hClientRequestSharedMemoryThread;
 DWORD dwClientRequestSharedMemoryThreadId;
-
-HANDLE hClientRequestsNamedPipeThread;
-DWORD dwClientRequestsNamedPipeThreadId;
 
 HANDLE hGameThread;
 DWORD dwGameThreadId;
@@ -61,13 +61,21 @@ int id = 0;
 int maxPlayers;
 Player* users;
 HANDLE hServerLogicMutex;
+HANDLE hGameLogicMutex;
 
 //Thread Shutdown
 BOOL keepAlive = TRUE;
 
 //Named pipe data
 PipeData* namedPipesData;
-HANDLE* hPipeEvents;
+HANDLE* hPipeRequestsEvents;
+HANDLE* hPipeGameUpdateEvents;
+
+HANDLE hClientRequestsNamedPipeThread;
+DWORD dwClientRequestsNamedPipeThreadId;
+
+HANDLE hGameUpdateNamedPipeThread;
+DWORD hGameUpdateNamedPipeThreadId;
 
 int _tmain(int argc, TCHAR* argv[])
 {
@@ -96,6 +104,11 @@ int _tmain(int argc, TCHAR* argv[])
 	}
 
 	hServerLogicMutex = CreateMutex(
+		NULL,              // default security attributes
+		FALSE,             // initially not owned
+		NULL);             // unnamed mutex
+
+	hGameLogicMutex = CreateMutex(
 		NULL,              // default security attributes
 		FALSE,             // initially not owned
 		NULL);             // unnamed mutex
@@ -161,10 +174,11 @@ int _tmain(int argc, TCHAR* argv[])
 	maxPlayers = gameConfigs.maxPlayers;
 	users = malloc(sizeof(Player) * maxPlayers);
 
-	hPipeEvents = malloc(sizeof(HANDLE) * maxPlayers);
+	hPipeRequestsEvents = malloc(sizeof(HANDLE) * maxPlayers);
+	hGameUpdateEvent = malloc(sizeof(HANDLE) * maxPlayers);
 	namedPipesData = malloc(sizeof(PipeData) * maxPlayers);
 
-	setupNamedPipes(namedPipesData, hPipeEvents, maxPlayers);
+	setupNamedPipes(namedPipesData, hPipeRequestsEvents, hGameUpdateEvent, maxPlayers);
 
 	//Thread to handle client requests through shared memory
 	hClientRequestSharedMemoryThread = CreateThread(
@@ -185,6 +199,15 @@ int _tmain(int argc, TCHAR* argv[])
 		0,											// use default creation flags 
 		&dwClientRequestsNamedPipeThreadId);		// returns the thread identifier
 
+	//Thread to handle game updates through named pipe
+	hGameUpdateNamedPipeThread = CreateThread(
+		NULL,										// default security attributes
+		0,											// use default stack size  
+		GameUpdateNamedPipe,						// thread function name
+		NULL,										// argument to thread function 
+		0,											// use default creation flags 
+		&hGameUpdateNamedPipeThreadId);				// returns the thread identifier
+
 
 	if(hClientRequestSharedMemoryThread == NULL)
 	{
@@ -196,12 +219,10 @@ int _tmain(int argc, TCHAR* argv[])
 
 	int option;
 
-	pGameDataMemory->level = 5;
-
 	do
 	{
 		//TODO: Send the game status to change menu accordingly
-		option = initialMenu();
+		option = initialMenu(pGameDataMemory->gameStatus);
 
 		switch (option)
 		{
@@ -215,9 +236,10 @@ int _tmain(int argc, TCHAR* argv[])
 					gameVariables.namedPipesData = namedPipesData;
 					gameVariables.gameConfigs = gameConfigs;
 					gameVariables.hGameUpdateEvent = hGameUpdateEvent;
+					gameVariables.hGameLogicMutex = hGameLogicMutex;
 					gameVariables.pGameData = pGameDataMemory;
 
-					//Thread to handle client requests
+					//Thread to handle the game logic
 					hGameThread = CreateThread(
 						NULL,						// default security attributes
 						0,							// use default stack size  
@@ -230,6 +252,7 @@ int _tmain(int argc, TCHAR* argv[])
 					pGameDataMemory->gameStatus = GAME_OVER;
 					//TODO: Update user status
 					WaitForSingleObject(hGameThread, INFINITE);
+					sendGameUpdate(gameVariables);
 				}
 				break;
 			case SHOW_TOP10:
@@ -261,7 +284,7 @@ int _tmain(int argc, TCHAR* argv[])
 	//Unlocks the shared memory client request thread
 	ReleaseSemaphore(hClientRequestSemaphoreItems, 1, NULL);
 	//Unlocks the named pipe client request thread
-	SetEvent(hPipeEvents[maxPlayers-1]);
+	SetEvent(hPipeRequestsEvents[maxPlayers-1]);
 
 	//Sends message to clients that server is shutting down
 	serverShutdownClients();
@@ -277,7 +300,8 @@ int _tmain(int argc, TCHAR* argv[])
 	CloseHandle(hGameDataMemoryMap);
 
 	free(users);
-	free(hPipeEvents);
+	free(hPipeRequestsEvents);
+	free(hGameUpdateEvent);
 	free(namedPipesData);
 
 	closeHandles();
@@ -296,31 +320,31 @@ DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam)
 		// connect operation. 
 
 		dwWait = WaitForMultipleObjects(
-			maxPlayers,   // number of event objects 
-			hPipeEvents,  // array of event objects 
-			FALSE,        // does not wait for all 
-			INFINITE);    // waits indefinitely
+			maxPlayers,				// number of event objects 
+			hPipeRequestsEvents,	// array of event objects 
+			FALSE,					// does not wait for all 
+			INFINITE);				// waits indefinitely
 
 		// dwWait shows which pipe completed the operation. 
 		i = dwWait - WAIT_OBJECT_0;  // determines which pipe 
 
-		if (i < 0 || i >(maxPlayers - 1))
+		if (i < 0 || i > (maxPlayers - 1))
 		{
-			_tprintf(TEXT("Index out of range.\n"));
+			_tprintf(TEXT("Index out of range (client requests).\n"));
 			return 0;
 		}
 
 		// Get the result if the operation was pending. 
-		if(namedPipesData[i].fPendingIO)
+		if(namedPipesData[i].fPendingIORequests)
 		{
 			fSuccess = GetOverlappedResult(
 				namedPipesData[i].hClientRequestsPipe,	// handle to pipe 
-				&namedPipesData[i].overlapped,			// OVERLAPPED structure 
+				&namedPipesData[i].overlappedRequests,	// OVERLAPPED structure 
 				&nBytes,								// bytes transferred 
 				FALSE);									// do not wait 
 
 			//Checks what operation was pending
-			switch (namedPipesData[i].dwState)
+			switch (namedPipesData[i].dwStateRequests)
 			{
 				// Pending connect operation 
 				case CONNECTING_STATE:
@@ -329,7 +353,7 @@ DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam)
 						_tprintf(TEXT("Pipe Connecting State -> Error %d.\n"), GetLastError());
 						return 0;
 					}
-					namedPipesData[i].dwState = READING_REQUEST_STATE;
+					namedPipesData[i].dwStateRequests = READING_REQUEST_STATE;
 					break;
 
 				// Pending read request operation 
@@ -340,10 +364,10 @@ DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam)
 						disconnectAndReconnectNamedPipes(&namedPipesData[i]);
 						continue;
 					}
-					namedPipesData[i].dwState = READING_REQUEST_STATE;
+					namedPipesData[i].dwStateRequests = READING_REQUEST_STATE;
 					//Handle Client Request 
 					receiveRequestNamedPipe(clientRequest, &namedPipesData[i]);
-					continue;
+					break;
 
 				// Pending write response operation 
 				case WRITING_RESPONSE_STATE:
@@ -352,17 +376,8 @@ DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam)
 						disconnectAndReconnectNamedPipes(&namedPipesData[i]);
 						continue;
 					}
-					namedPipesData[i].dwState = READING_REQUEST_STATE;
-					continue;
-
-				case WRITING_GAME_STATE:
-					if (!fSuccess || nBytes != sizeof(GameData))
-					{
-						disconnectAndReconnectNamedPipes(&namedPipesData[i]);
-						continue;
-					}
-					namedPipesData[i].dwState = READING_REQUEST_STATE;
-					continue;
+					namedPipesData[i].dwStateRequests = READING_REQUEST_STATE;
+					break;
 
 				default:
 				{
@@ -379,13 +394,12 @@ DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam)
 			&clientRequest,
 			sizeof(clientRequest),
 			&readBytes,
-			&namedPipesData[i].overlapped);
+			&namedPipesData[i].overlappedRequests);
 
 		// The read operation completed successfully. 
 		if (fSuccess && readBytes != 0)
 		{
-			namedPipesData[i].fPendingIO = FALSE;
-			//TODO: Add mutex?
+			namedPipesData[i].fPendingIORequests = FALSE;
 			receiveRequestNamedPipe(clientRequest, &namedPipesData[i]);
 			continue;
 		}
@@ -394,12 +408,84 @@ DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam)
 		dwErr = GetLastError();
 		if (!fSuccess && (dwErr == ERROR_IO_PENDING))
 		{
-			namedPipesData[i].fPendingIO = TRUE;
+			namedPipesData[i].fPendingIORequests = TRUE;
 			continue;
 		}
 
 		// An error occurred; disconnect from the client. 
 		disconnectAndReconnectNamedPipes(&namedPipesData[i]);
+	}
+
+	return 1;
+}
+
+DWORD WINAPI GameUpdateNamedPipe(LPVOID lpParam)
+{
+	DWORD dwWait, nBytes, readBytes, dwErr;
+	int i, fSuccess;
+	ClientMessage clientRequest;
+
+	while (keepAlive == TRUE)
+	{
+		// Wait for the event object to be signaled, indicating 
+		// completion of an overlapped read, write, or 
+		// connect operation. 
+
+		dwWait = WaitForMultipleObjects(
+			maxPlayers,			// number of event objects 
+			hGameUpdateEvent,	// array of event objects 
+			FALSE,				// does not wait for all 
+			INFINITE);			// waits indefinitely
+
+		// dwWait shows which pipe completed the operation. 
+		i = dwWait - WAIT_OBJECT_0;  // determines which pipe 
+
+		if (i < 0 || i > (maxPlayers - 1))
+		{
+			_tprintf(TEXT("Index out of range (game update).\n"));
+			return 0;
+		}
+
+		// Get the result if the operation was pending. 
+		if (namedPipesData[i].fPendingIOGame)
+		{
+			fSuccess = GetOverlappedResult(
+				namedPipesData[i].hGamePipe,		// handle to pipe 
+				&namedPipesData[i].overlappedGame,	// OVERLAPPED structure 
+				&nBytes,							// bytes transferred 
+				FALSE);								// do not wait 
+
+			//Checks what operation was pending
+			switch (namedPipesData[i].dwStateGame)
+			{
+				// Pending connect operation 
+				case CONNECTING_STATE:
+					if (!fSuccess)
+					{
+						_tprintf(TEXT("Pipe Connecting State -> Error %d.\n"), GetLastError());
+						return 0;
+					}
+					namedPipesData[i].dwStateGame = WRITING_GAME_STATE;
+					break;
+
+				// Pending write game update operation 
+				case WRITING_GAME_STATE:
+					if (!fSuccess || nBytes != sizeof(GameData))
+					{
+						disconnectAndReconnectNamedPipes(&namedPipesData[i]);
+						continue;
+					}
+					break;
+				default:
+				{
+					_tprintf(TEXT("Invalid pipe state.\n"));
+					return 0;
+				}
+			}
+		}
+
+		//Resets event until there is another game update
+		ResetEvent(namedPipesData[i].overlappedGame.hEvent);
 	}
 
 	return 1;
@@ -427,6 +513,12 @@ DWORD WINAPI ClientRequestsSharedMemory(LPVOID lpParam)
 				serverResponse = sendTop10(clientRequest);
 				sendResponseSharedMemory(serverResponse);
 				showResponseMessageInformation(serverResponse, clientRequest->type);
+				break;
+			case MOVE_RIGHT:
+				movePlayerBarrier(clientRequest->id, MOVE_RIGHT);
+				break;
+			case MOVE_LEFT:
+				movePlayerBarrier(clientRequest->id, MOVE_LEFT);
 				break;
 			case LOGOUT:
 				userLogout(clientRequest->id);
@@ -520,6 +612,19 @@ ServerMessage sendTop10(ClientMessage* clientMessage)
 	return serverResponse;
 }
 
+void movePlayerBarrier(int playerId, int direction)
+{
+	WaitForSingleObject(hGameLogicMutex, INFINITE);
+	if(direction == MOVE_RIGHT)
+	{
+		_tprintf(TEXT("\nMove right"));
+	} else if(direction == MOVE_LEFT)
+	{
+		_tprintf(TEXT("\nMove left"));
+	}
+	ReleaseMutex(hGameLogicMutex);
+}
+
 void userLogout(int userID)
 {
 	for(int i = 0; i < currentUsers; i++)
@@ -570,4 +675,7 @@ void closeHandles()
 	CloseHandle(hClientRequestSemaphoreEmpty);
 	CloseHandle(hServerResponseSemaphoreItems);
 	CloseHandle(hServerResponseSemaphoreEmpty);
+
+	CloseHandle(hServerLogicMutex);
+	CloseHandle(hGameLogicMutex);
 }

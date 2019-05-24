@@ -142,7 +142,13 @@ int setupInitialGameConfigs(TCHAR* filename[_MAX_FNAME], GameConfigs* gameConfig
 				gameConfigs->initialLives = value;
 				break;
 			case 6:
-				gameConfigs->numBricks = value;
+				if(value > MAX_BRICKS)
+				{
+					gameConfigs->numBricks = MAX_BRICKS;
+				} else
+				{
+					gameConfigs->numBricks = value;
+				}
 				break;
 			case 7:
 				gameConfigs->movementSpeed = value;
@@ -272,7 +278,7 @@ void createGameUpdateEvent(HANDLE* hGameUpdateEvent)
 	);
 }
 
-int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeEvents, int numPipes)
+int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeRequestsEvents, HANDLE* hGameUpdateEvent,int numPipes)
 {
 	TCHAR pipeClientRequestsName[MAX];
 	TCHAR pipeServerResponsesName[MAX];
@@ -293,27 +299,45 @@ int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeEvents, int numPipes)
 	{
 		namedPipesData[i].userID = UNDEFINED_ID;
 		
-		hPipeEvents[i] = CreateEvent(
-			&sa,	 // custom security attribute 
+		hPipeRequestsEvents[i] = CreateEvent(
+			NULL,	 // custom security attribute 
 			TRUE,    // manual-reset event 
 			TRUE,    // initial state = signaled 
 			NULL);   // unnamed event object
 
-		if (hPipeEvents[i] == NULL)
+		if (hPipeRequestsEvents[i] == NULL)
 		{
 			_tprintf(TEXT("CreateEvent failed with %d.\n"), GetLastError());
 			return -1;
 		}
 
-		ZeroMemory(&namedPipesData[i].overlapped, sizeof(namedPipesData[i].overlapped));
-		namedPipesData[i].overlapped.hEvent = hPipeEvents[i];
+		hGameUpdateEvent[i] = CreateEvent(
+			NULL,	 // custom security attribute 
+			TRUE,    // manual-reset event 
+			TRUE,    // initial state = signaled 
+			NULL);   // unnamed event object
+
+		if (hGameUpdateEvent[i] == NULL)
+		{
+			_tprintf(TEXT("CreateEvent failed with %d.\n"), GetLastError());
+			return -1;
+		}
+
+		//Setup client requests events
+		ZeroMemory(&namedPipesData[i].overlappedRequests, sizeof(namedPipesData[i].overlappedRequests));
+		namedPipesData[i].overlappedRequests.hEvent = hPipeRequestsEvents[i];
+
+		//Setup game update events
+		ZeroMemory(&namedPipesData[i].overlappedGame, sizeof(namedPipesData[i].overlappedGame));
+		namedPipesData[i].overlappedGame.hEvent = hGameUpdateEvent[i];
 
 		createMessageNamedPipe(
 			&namedPipesData[i].hClientRequestsPipe,		// pipe handle
 			pipeClientRequestsName,						// pipe name 
 			PIPE_ACCESS_INBOUND,						// server -> read / client -> write access
 			numPipes,									// number of instances 
-			sizeof(ClientMessage));						// buffer size
+			sizeof(ClientMessage),						// buffer size
+			sa);										// Custom security Attributes
 
 		if (namedPipesData[i].hClientRequestsPipe == INVALID_HANDLE_VALUE)
 		{
@@ -326,7 +350,8 @@ int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeEvents, int numPipes)
 			pipeServerResponsesName,					// pipe name 
 			PIPE_ACCESS_OUTBOUND,						// client -> read / server -> write access 
 			numPipes,									// number of instances 
-			sizeof(ServerMessage));						// buffer size
+			sizeof(ServerMessage),						// buffer size
+			sa);										// Custom security Attributes
 
 
 		if (namedPipesData[i].hServerResponsesPipe == INVALID_HANDLE_VALUE)
@@ -340,7 +365,8 @@ int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeEvents, int numPipes)
 			pipeGameName,						// pipe name 
 			PIPE_ACCESS_OUTBOUND,				// client -> read / server -> write access 
 			numPipes,							// number of instances 
-			sizeof(GameData));					// buffer size
+			sizeof(GameData),					// buffer size
+			sa);								// Custom security Attributes
 
 		if (namedPipesData[i].hGamePipe == INVALID_HANDLE_VALUE)
 		{
@@ -348,27 +374,31 @@ int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeEvents, int numPipes)
 			return -1;
 		}
 
-		namedPipesData[i].fPendingIO = newPlayerPipeConnection(
+		namedPipesData[i].fPendingIORequests = newPlayerPipeConnection(
 			namedPipesData[i].hClientRequestsPipe,
-			&namedPipesData[i].overlapped);
+			&namedPipesData[i].overlappedRequests);
 
-		namedPipesData[i].dwState = namedPipesData[i].fPendingIO
+		namedPipesData[i].dwStateRequests = namedPipesData[i].fPendingIORequests
 			? CONNECTING_STATE :		// still connecting 
 			READING_REQUEST_STATE;		// ready to read clients request
 
 		newPlayerPipeConnection(
 			namedPipesData[i].hServerResponsesPipe,
-			&namedPipesData[i].overlapped);
+			&namedPipesData[i].overlappedRequests);
 
-		newPlayerPipeConnection(
+		namedPipesData[i].fPendingIOGame = newPlayerPipeConnection(
 			namedPipesData[i].hGamePipe,
-			&namedPipesData[i].overlapped);
+			&namedPipesData[i].overlappedGame);
+
+		namedPipesData[i].dwStateGame = namedPipesData[i].fPendingIOGame
+			? CONNECTING_STATE :		// still connecting 
+			WRITING_GAME_STATE;			// ready to read clients request
 	}
 
 	return 1;
 }
 
-void createMessageNamedPipe(HANDLE* hPipe, TCHAR* pipeName, DWORD openMode, DWORD maxPlayers, DWORD bufferSize)
+void createMessageNamedPipe(HANDLE* hPipe, TCHAR* pipeName, DWORD openMode, DWORD maxPlayers, DWORD bufferSize, SECURITY_ATTRIBUTES sa)
 {
 	//TODO: Add security attributes 
 
@@ -384,7 +414,7 @@ void createMessageNamedPipe(HANDLE* hPipe, TCHAR* pipeName, DWORD openMode, DWOR
 		bufferSize,						// output buffer size 
 		bufferSize,						// input buffer size 
 		0,								// client time-out 
-		NULL);							// default security attributes
+		&sa);							// custom security attributes
 }
 
 BOOL newPlayerPipeConnection(HANDLE hPipe, LPOVERLAPPED lpo)

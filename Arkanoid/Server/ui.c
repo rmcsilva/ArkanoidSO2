@@ -3,10 +3,17 @@
 #include "messages.h"
 #include "util.h"
 
-int initialMenu()
+int initialMenu(int gameStatus)
 {
 	int option;
-	_tprintf(TEXT("1 - Start the game\n"));
+	if(gameStatus != GAME_ACTIVE)
+	{
+		_tprintf(TEXT("1 - Start the game\n"));
+	} else
+	{
+		_tprintf(TEXT("1 - End the game\n"));
+	}
+	
 	_tprintf(TEXT("2 - Show player top 10\n"));
 	_tprintf(TEXT("3 - List connected users\n"));
 	_tprintf(TEXT("4 - Shutdown server\n"));

@@ -32,6 +32,8 @@ HANDLE hRegistryKey;
 TCHAR rightMovementKey;
 TCHAR leftMovementKey;
 
+HBITMAP hGameBackgroundBitmap;
+
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
@@ -147,6 +149,10 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	int xPos, yPos;
+	TCHAR letter;
+	RECT rt;
+
     switch (message)
     {
 	case WM_CREATE:
@@ -170,6 +176,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 
+		//Load assets
+		hGameBackgroundBitmap = LoadBitmap(hInst, MAKEINTRESOURCE(IDB_ARKANOID_GAME));
+
+		//Game movement keys
 		setupMovementKeys(&hRegistryKey, &rightMovementKey, &leftMovementKey);
 
 		//Thread to handle the game updates
@@ -201,21 +211,42 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
+	case WM_CHAR:
+		if(inGame == TRUE)
+		{
+			//TODO: Check if player is playing or just watching
+			letter = (TCHAR)wParam;
+			letter = _totupper(letter);
+
+			if(letter == rightMovementKey)
+			{
+				sendMessage(MOVE_RIGHT);
+			} else if(letter == leftMovementKey)
+			{
+				sendMessage(MOVE_LEFT);
+			}
+		}
+		break;
+	case WM_MOUSEMOVE:
+		if(inGame == TRUE)
+		{
+			xPos = GET_X_LPARAM(lParam);
+			yPos = GET_Y_LPARAM(lParam);
+
+			//TODO: Verify with barrier position
+		}
+		break;
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
-			HBITMAP hBitMap;
-			RECT rt;
 			GetClientRect(hWnd, &rt);
-			hBitMap = LoadBitmap(hInst, MAKEINTRESOURCE(IDB_ARKANOID_GAME));
 			HDC hmemdc = CreateCompatibleDC(hdc);
-			SelectObject(hmemdc, hBitMap);
+			SelectObject(hmemdc, hGameBackgroundBitmap);
 			BitBlt(hdc, 0,0, DIM_X_FRAME, DIM_Y_FRAME, hmemdc, 0, 0, SRCCOPY);
-			DeleteObject(hBitMap);
-			DeleteDC(hmemdc);
             // TODO: Add any drawing code that uses hdc here...
             EndPaint(hWnd, &ps);
+			DeleteDC(hmemdc);
         }
         break;
 	case WM_CLOSE:
@@ -229,6 +260,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
     case WM_DESTROY:
+		DeleteObject(hGameBackgroundBitmap);
+
+		RegCloseKey(hRegistryKey);
 		logout();
         PostQuitMessage(0);
         break;
@@ -379,30 +413,35 @@ INT_PTR CALLBACK settingsEventsDialog(HWND hDlg, UINT message, WPARAM wParam, LP
 DWORD WINAPI GameUpdate(LPVOID lpParam)
 {
 	int status;
-
-	while (shutdown == FALSE)
+	while(shutdown == FALSE)
 	{
-		status = receiveBroadcast();
+		while (shutdown == FALSE)
+		{
+			status = receiveBroadcast();
 
-		if (status == GAME_OVER)
-		{
-			break;
+			if (status == GAME_OVER)
+			{
+				inGame = FALSE;
+				break;
+			}
+			else if (status == LOGOUT)
+			{
+				inGame = FALSE;
+				shutdown = TRUE;
+				PostThreadMessage(mainThreadId, WM_QUIT, 0, 0);
+				return -1;
+			}
+			inGame = TRUE;
+			//TODO: Update GUI
+			//Export the game memory pointer and update?
 		}
-		else if (status == LOGOUT)
-		{
-			shutdown = TRUE;
-			PostThreadMessage(mainThreadId, WM_QUIT, 0, 0);
-			return -1;
-		}
-		//TODO: Update GUI
-		//Export the game memory pointer and update?
+
+		inGame = FALSE;
+
+		//Receives the top10
+		sendMessage(TOP10);
+		receiveMessage(TOP10);
 	}
-
-	inGame = FALSE;
-
-	//Receives the top10
-	sendMessage(TOP10);
-	receiveMessage(TOP10);
-
+	
 	return 1;
 }

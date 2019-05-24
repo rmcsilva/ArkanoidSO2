@@ -412,15 +412,27 @@ int receiveMessageNamedPipe(int messageType)
 {
 	DWORD nBytes;
 	ServerMessage serverResponse;
+	BOOL fSuccess;
 
-	BOOL fSuccess = ReadFile(
-		hServerResponsePipe,    // pipe handle 
-		&serverResponse,		// buffer to receive reply 
-		sizeof(serverResponse), // size of buffer 
-		&nBytes,				// number of bytes read 
-		NULL);					// not overlapped 
+	do
+	{
+		fSuccess = ReadFile(
+			hServerResponsePipe,    // pipe handle 
+			&serverResponse,		// buffer to receive reply 
+			sizeof(serverResponse), // size of buffer 
+			&nBytes,				// number of bytes read 
+			NULL);					// not overlapped
 
-	//TODO: Add verifications
+		if (!fSuccess && GetLastError() != ERROR_MORE_DATA)
+			break;
+
+	} while (!fSuccess);  // repeat loop if ERROR_MORE_DATA 
+
+	if (!fSuccess)
+	{
+		_tprintf(TEXT("ReadFile from pipe failed. GLE=%d\n"), GetLastError());
+		return -1;
+	}
 
 	switch (messageType)
 	{

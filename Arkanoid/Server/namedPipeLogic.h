@@ -13,10 +13,13 @@ typedef struct PipeData {
 	HANDLE hClientRequestsPipe;
 	HANDLE hServerResponsesPipe;
 	HANDLE hGamePipe;
-	OVERLAPPED overlapped;
+	OVERLAPPED overlappedRequests;
+	OVERLAPPED overlappedGame;
 	int userID;
-	DWORD dwState;
-	BOOL fPendingIO;
+	DWORD dwStateRequests;
+	DWORD dwStateGame;
+	BOOL fPendingIORequests;
+	BOOL fPendingIOGame;
 }PipeData;
 
 void sendGameNamedPipe(GameData gameData, PipeData* pipeData);

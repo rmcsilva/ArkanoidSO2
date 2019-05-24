@@ -10,7 +10,7 @@
 #define LIST_USERS 3
 #define SHUTDOWN 4
 
-int initialMenu();
+int initialMenu(int gameStatus);
 void showResponseMessageInformation(ServerMessage serverMessage, int requestType);
 void showTopPlayers(TopPlayer* topPlayers, DWORD playerCount);
 void showConnectedUsers(Player* users, int connectedUsers);
