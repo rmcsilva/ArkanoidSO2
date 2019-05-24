@@ -18,9 +18,13 @@ typedef struct GameVariables {
 	GameData* pGameData;
 	GameConfigs gameConfigs;
 	HANDLE hGameUpdateEvent;
+	HANDLE hGameLogicMutex;
 	PipeData* namedPipesData;
 }GameVariables;
 
 DWORD WINAPI GameLogic(LPVOID lpParam);
-void ballMovement(GameData* pGameData);
+void initializeGame(GameVariables* pGameVariables);
+void resetBall(Ball* ball);
+void initializeBricks(GameVariables* pGameVariables);
+void ballMovement(GameVariables* pGameVariables);
 void sendGameUpdate(GameVariables gameVariables);

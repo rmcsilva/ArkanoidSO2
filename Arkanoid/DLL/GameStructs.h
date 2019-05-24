@@ -42,13 +42,13 @@ typedef struct Player {
 	TCHAR username[TAM];
 	int id;
 	int score;
-	int lives;
 	BOOL inGame;
 }Player;
 
 typedef struct GameData {
 	int gameStatus;
 	int level;
+	int lives;
 	int barrierDimensions;
 	int numPlayers;
 	Player player[MAX_PLAYERS];

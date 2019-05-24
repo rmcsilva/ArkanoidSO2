@@ -84,7 +84,7 @@ void showConnectedUsers(Player* users, int connectedUsers)
 		if(users[i].inGame == TRUE)
 		{
 			_tprintf(TEXT("User is in game!\n"));
-			_tprintf(TEXT("Lives: %d\nScore: %d\n"), users[i].lives, users[i].score);
+			_tprintf(TEXT("Score: %d\n"), users[i].score);
 		} else
 		{
 			_tprintf(TEXT("User is not in game!\n\n"));
