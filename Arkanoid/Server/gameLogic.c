@@ -55,6 +55,7 @@ void initializeGame(GameVariables* pGameVariables)
 {
 	GameData* pGameData = pGameVariables->pGameData;
 
+	pGameData->gameStatus = GAME_ACTIVE;
 	pGameData->numBalls = 1;
 	pGameData->level = 1;
 	pGameData->lives = pGameVariables->gameConfigs.initialLives;
@@ -126,6 +127,7 @@ void initializeBricks(GameVariables* pGameVariables)
 		}
 	}
 }
+
 void sendGameUpdate(GameVariables gameVariables)
 {
 	SetEvent(gameVariables.hGameUpdateEvent);
@@ -152,5 +154,30 @@ void ballMovement(GameVariables* pGameVariables)
 
 		_stprintf_s(debugText, TAM, TEXT("\nBall %d position x: %d y: %d\n"), i, pGameData->ball[0].position.x, pGameData->ball[0].position.y);
 		OutputDebugString(debugText);
+	}
+}
+
+void assignUsersToGame(GameData* pGameData, Player* users, int currentUsers)
+{
+	pGameData->numPlayers = currentUsers;
+
+	int maxDimension = BARRIER_AREA / pGameData->numPlayers;
+	pGameData->barrierDimensions =  maxDimension - maxDimension * BARRIER_MARGIN_PERCENTAGE;
+	int barrierStartPosition = GAME_BORDER_LEFT + maxDimension - pGameData->barrierDimensions / 2;
+
+	for(int i = 0; i < currentUsers; i++)
+	{
+		//Setup Player
+		_tcscpy_s(pGameData->player[i].username, TAM, users[i].username);
+		pGameData->player[i].id = users[i].id;
+		pGameData->player[i].inGame = TRUE;
+		pGameData->player[i].score = 0;
+
+		//Setup Barrier
+		pGameData->barrier[i].playerID = pGameData->player[i].id;
+		pGameData->barrier[i].sizeRatio = 1;
+		pGameData->barrier[i].position.x = barrierStartPosition;
+		barrierStartPosition += maxDimension;
+		pGameData->barrier[i].position.y = GAME_BARRIER_Y;
 	}
 }

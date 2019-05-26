@@ -2,6 +2,10 @@
 #include "stdafx.h"
 #include "gameStructs.h"
 #include "namedPipeLogic.h"
+#include "gameConstants.h"
+
+#define BARRIER_MARGIN_PERCENTAGE 0.5
+#define BARRIER_AREA (GAME_BOARD_WIDTH * 0.8)
 
 typedef struct GameConfigs {
 	int maxPlayers;
@@ -28,3 +32,4 @@ void resetBall(Ball* ball);
 void initializeBricks(GameVariables* pGameVariables);
 void ballMovement(GameVariables* pGameVariables);
 void sendGameUpdate(GameVariables gameVariables);
+void assignUsersToGame(GameData* pGameData, Player* users, int currentUsers);

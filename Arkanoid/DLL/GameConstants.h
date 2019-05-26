@@ -16,6 +16,7 @@
 #define GAME_SCORE_X 620
 
 #define GAME_BARRIER_Y 560
+#define GAME_BARRIER_HEIGHT 35
 
 //Game constants 
 #define MAX_PLAYERS 20

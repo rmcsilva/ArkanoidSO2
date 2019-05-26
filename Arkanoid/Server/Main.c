@@ -229,24 +229,30 @@ int _tmain(int argc, TCHAR* argv[])
 			case START_GAME:
 				if(pGameDataMemory->gameStatus != GAME_ACTIVE)
 				{
-					pGameDataMemory->gameStatus = GAME_ACTIVE;
+					if(currentUsers > 0)
+					{
+						assignUsersToGame(pGameDataMemory, users, currentUsers);
 
-					//TODO: Setup Game Variables
-					//TODO: Update user status
-					gameVariables.namedPipesData = namedPipesData;
-					gameVariables.gameConfigs = gameConfigs;
-					gameVariables.hGameUpdateEvent = hGameUpdateEvent;
-					gameVariables.hGameLogicMutex = hGameLogicMutex;
-					gameVariables.pGameData = pGameDataMemory;
+						//Setup Game Variables
+						gameVariables.namedPipesData = namedPipesData;
+						gameVariables.gameConfigs = gameConfigs;
+						gameVariables.hGameUpdateEvent = hGameUpdateEvent;
+						gameVariables.hGameLogicMutex = hGameLogicMutex;
+						gameVariables.pGameData = pGameDataMemory;
 
-					//Thread to handle the game logic
-					hGameThread = CreateThread(
-						NULL,						// default security attributes
-						0,							// use default stack size  
-						GameLogic,					// thread function name
-						(LPVOID)&gameVariables,		// argument to thread function 
-						0,							// use default creation flags 
-						&dwGameThreadId);			// returns the thread identifier 
+						//Thread to handle the game logic
+						hGameThread = CreateThread(
+							NULL,						// default security attributes
+							0,							// use default stack size  
+							GameLogic,					// thread function name
+							(LPVOID)& gameVariables,		// argument to thread function 
+							0,							// use default creation flags 
+							&dwGameThreadId);			// returns the thread identifier 
+					} else
+					{
+						_tprintf(TEXT("\nCannot start a game without players!\n\n"));
+					}
+					
 				} else
 				{
 					pGameDataMemory->gameStatus = GAME_OVER;
