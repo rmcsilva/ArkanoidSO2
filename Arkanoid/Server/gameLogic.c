@@ -130,7 +130,11 @@ void initializeBricks(GameVariables* pGameVariables)
 
 void sendGameUpdate(GameVariables gameVariables)
 {
-	SetEvent(gameVariables.hGameUpdateEvent);
+	if (!SetEvent(gameVariables.hGameUpdateEvent))
+	{
+		_tprintf(TEXT("SetEvent GameUpdate failed (%d)\n"), GetLastError());
+		return;
+	}
 	ResetEvent(gameVariables.hGameUpdateEvent);
 
 	for(int i=0; i < gameVariables.gameConfigs.maxPlayers; i++)
@@ -180,4 +184,28 @@ void assignUsersToGame(GameData* pGameData, Player* users, int currentUsers)
 		barrierStartPosition += maxDimension;
 		pGameData->barrier[i].position.y = GAME_BARRIER_Y;
 	}
+}
+
+int getPlayerToTheRight(GameData gameData, int userPosition)
+{
+	for(int i = userPosition; i < gameData.numPlayers - 1; i++)
+	{
+		if(gameData.player[i + 1].inGame == TRUE)
+		{
+			return i + 1;
+		}
+	}
+	return -1;
+}
+
+int getPlayerToTheLeft(GameData gameData, int userPosition)
+{
+	for (int i = userPosition; i > 0; i--)
+	{
+		if (gameData.player[i - 1].inGame == TRUE)
+		{
+			return i - 1;
+		}
+	}
+	return -1;
 }

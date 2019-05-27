@@ -25,6 +25,7 @@ void sendResponseSharedMemory(ServerMessage serverMessage);
 ServerMessage userLogin(ClientMessage* clientMessage);
 ServerMessage sendTop10(ClientMessage* clientMessage);
 void movePlayerBarrier(int playerId, int direction);
+int checkIfUserIsInGame(int playerId);
 void userLogout(int userID);
 
 void serverShutdownClients();
@@ -61,7 +62,6 @@ int id = 0;
 int maxPlayers;
 Player* users;
 HANDLE hServerLogicMutex;
-HANDLE hGameLogicMutex;
 
 //Thread Shutdown
 BOOL keepAlive = TRUE;
@@ -77,12 +77,15 @@ DWORD dwClientRequestsNamedPipeThreadId;
 HANDLE hGameUpdateNamedPipeThread;
 DWORD hGameUpdateNamedPipeThreadId;
 
+//Game Logic
+GameConfigs gameConfigs;
+HANDLE hGameLogicMutex;
+
 int _tmain(int argc, TCHAR* argv[])
 {
 	ClientMessageControl clientRequests;
 	ServerMessageControl serverResponses;
 	GameData gameData;
-	GameConfigs gameConfigs;
 
 	HANDLE hClientRequestMemoryMap;
 	HANDLE hServerResponseMemoryMap;
@@ -175,10 +178,10 @@ int _tmain(int argc, TCHAR* argv[])
 	users = malloc(sizeof(Player) * maxPlayers);
 
 	hPipeRequestsEvents = malloc(sizeof(HANDLE) * maxPlayers);
-	hGameUpdateEvent = malloc(sizeof(HANDLE) * maxPlayers);
+	hPipeGameUpdateEvents = malloc(sizeof(HANDLE) * maxPlayers);
 	namedPipesData = malloc(sizeof(PipeData) * maxPlayers);
 
-	setupNamedPipes(namedPipesData, hPipeRequestsEvents, hGameUpdateEvent, maxPlayers);
+	setupNamedPipes(namedPipesData, hPipeRequestsEvents, hPipeGameUpdateEvents, maxPlayers);
 
 	//Thread to handle client requests through shared memory
 	hClientRequestSharedMemoryThread = CreateThread(
@@ -245,7 +248,7 @@ int _tmain(int argc, TCHAR* argv[])
 							NULL,						// default security attributes
 							0,							// use default stack size  
 							GameLogic,					// thread function name
-							(LPVOID)& gameVariables,		// argument to thread function 
+							(LPVOID)&gameVariables,		// argument to thread function 
 							0,							// use default creation flags 
 							&dwGameThreadId);			// returns the thread identifier 
 					} else
@@ -307,7 +310,7 @@ int _tmain(int argc, TCHAR* argv[])
 
 	free(users);
 	free(hPipeRequestsEvents);
-	free(hGameUpdateEvent);
+	free(hPipeGameUpdateEvents);
 	free(namedPipesData);
 
 	closeHandles();
@@ -438,10 +441,10 @@ DWORD WINAPI GameUpdateNamedPipe(LPVOID lpParam)
 		// connect operation. 
 
 		dwWait = WaitForMultipleObjects(
-			maxPlayers,			// number of event objects 
-			hGameUpdateEvent,	// array of event objects 
-			FALSE,				// does not wait for all 
-			INFINITE);			// waits indefinitely
+			maxPlayers,				// number of event objects 
+			hPipeGameUpdateEvents,	// array of event objects 
+			FALSE,					// does not wait for all 
+			INFINITE);				// waits indefinitely
 
 		// dwWait shows which pipe completed the operation. 
 		i = dwWait - WAIT_OBJECT_0;  // determines which pipe 
@@ -620,15 +623,81 @@ ServerMessage sendTop10(ClientMessage* clientMessage)
 
 void movePlayerBarrier(int playerId, int direction)
 {
-	WaitForSingleObject(hGameLogicMutex, INFINITE);
+	int index = checkIfUserIsInGame(playerId);
+
+	if(index == -1)
+	{
+		return;
+	}
+
+	int moveTo, nextPlayer;
 	if(direction == MOVE_RIGHT)
 	{
-		_tprintf(TEXT("\nMove right"));
+		moveTo = pGameDataMemory->barrier[index].position.x + gameConfigs.movementSpeed;
+		nextPlayer = getPlayerToTheRight(*pGameDataMemory, index);
+
+		if(nextPlayer != -1)
+		{
+			if(pGameDataMemory->barrier[nextPlayer].position.x < moveTo + pGameDataMemory->barrierDimensions)
+			{
+				_tprintf(TEXT("\nUser %s can't move right(player overlap)\n\n"), pGameDataMemory->player[index].username);
+				return;
+			}
+		}
+
+		if (moveTo + pGameDataMemory->barrierDimensions <= GAME_BORDER_RIGHT)
+		{
+			WaitForSingleObject(hGameLogicMutex, INFINITE);
+			pGameDataMemory->barrier[index].position.x = moveTo;
+			ReleaseMutex(hGameLogicMutex);
+			_tprintf(TEXT("\nUser %s moved right\n\n"), pGameDataMemory->player[index].username);
+			return;
+		}
+		_tprintf(TEXT("\nUser %s can't move right\n\n"), pGameDataMemory->player[index].username);
+		
 	} else if(direction == MOVE_LEFT)
 	{
-		_tprintf(TEXT("\nMove left"));
+		moveTo = pGameDataMemory->barrier[index].position.x - gameConfigs.movementSpeed;
+		nextPlayer = getPlayerToTheLeft(*pGameDataMemory, index);
+
+		if(nextPlayer != -1)
+		{
+			if (pGameDataMemory->barrier[nextPlayer].position.x + pGameDataMemory->barrierDimensions > moveTo)
+			{
+				_tprintf(TEXT("\nUser %s can't move left (player overlap)\n\n"), pGameDataMemory->player[index].username);
+				return;
+			}
+		}
+
+		if (moveTo >= GAME_BORDER_LEFT)
+		{
+			WaitForSingleObject(hGameLogicMutex, INFINITE);
+			pGameDataMemory->barrier[index].position.x = moveTo;
+			ReleaseMutex(hGameLogicMutex);
+			_tprintf(TEXT("\nUser %s moved left\n\n"), pGameDataMemory->player[index].username);
+			return;
+		}
+		_tprintf(TEXT("\nUser %s can't move left\n\n"), pGameDataMemory->player[index].username);
 	}
-	ReleaseMutex(hGameLogicMutex);
+
+}
+
+int checkIfUserIsInGame(int playerId)
+{
+	for(int i = 0; i < currentUsers; i++)
+	{
+		if(pGameDataMemory->player[i].id == playerId)
+		{
+			if(pGameDataMemory->player[i].inGame == FALSE)
+			{
+				_tprintf(TEXT("\nUser %s is not in game!\n\n"), pGameDataMemory->player[i].username);
+				return -1;
+			}
+			return i;
+		}
+	}
+	_tprintf(TEXT("\nUser %d is not connected to the server!\n\n"), playerId);
+	return -1;
 }
 
 void userLogout(int userID)

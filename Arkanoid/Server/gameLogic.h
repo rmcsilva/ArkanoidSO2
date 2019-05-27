@@ -33,3 +33,5 @@ void initializeBricks(GameVariables* pGameVariables);
 void ballMovement(GameVariables* pGameVariables);
 void sendGameUpdate(GameVariables gameVariables);
 void assignUsersToGame(GameData* pGameData, Player* users, int currentUsers);
+int getPlayerToTheRight(GameData gameData, int userPosition);
+int getPlayerToTheLeft(GameData gameData, int userPosition);

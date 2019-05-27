@@ -278,7 +278,7 @@ void createGameUpdateEvent(HANDLE* hGameUpdateEvent)
 	);
 }
 
-int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeRequestsEvents, HANDLE* hGameUpdateEvent,int numPipes)
+int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeRequestsEvents, HANDLE* hPipeGameUpdateEvents, int numPipes)
 {
 	TCHAR pipeClientRequestsName[MAX];
 	TCHAR pipeServerResponsesName[MAX];
@@ -311,13 +311,13 @@ int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeRequestsEvents, HANDL
 			return -1;
 		}
 
-		hGameUpdateEvent[i] = CreateEvent(
+		hPipeGameUpdateEvents[i] = CreateEvent(
 			NULL,	 // custom security attribute 
 			TRUE,    // manual-reset event 
 			TRUE,    // initial state = signaled 
 			NULL);   // unnamed event object
 
-		if (hGameUpdateEvent[i] == NULL)
+		if (hPipeGameUpdateEvents[i] == NULL)
 		{
 			_tprintf(TEXT("CreateEvent failed with %d.\n"), GetLastError());
 			return -1;
@@ -329,7 +329,7 @@ int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeRequestsEvents, HANDL
 
 		//Setup game update events
 		ZeroMemory(&namedPipesData[i].overlappedGame, sizeof(namedPipesData[i].overlappedGame));
-		namedPipesData[i].overlappedGame.hEvent = hGameUpdateEvent[i];
+		namedPipesData[i].overlappedGame.hEvent = hPipeGameUpdateEvents[i];
 
 		createMessageNamedPipe(
 			&namedPipesData[i].hClientRequestsPipe,		// pipe handle
