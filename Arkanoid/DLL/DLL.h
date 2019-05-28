@@ -43,7 +43,7 @@ extern "C" {
 	DLL_IMP_API int login(TCHAR* loginUsername, TCHAR* ip);
 	DLL_IMP_API void sendMessage(int messageType);
 	DLL_IMP_API int receiveMessage(int messageType);
-	DLL_IMP_API int receiveBroadcast();
+	DLL_IMP_API GameData receiveBroadcast();
 	DLL_IMP_API void logout(void);
 #ifdef __cplusplus
 }

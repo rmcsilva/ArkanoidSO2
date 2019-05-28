@@ -84,11 +84,13 @@ int _tmain(int argc, TCHAR* argv[])
 
 DWORD WINAPI GameUpdate(LPVOID lpParam)
 {
+	GameData gameData;
 	int status;
 
 	while (TRUE)
 	{
-		status = receiveBroadcast();
+		gameData = receiveBroadcast();
+		status = gameData.gameStatus;
 
 		if(status == GAME_OVER)
 		{

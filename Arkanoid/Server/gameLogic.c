@@ -5,6 +5,7 @@
 #include "gameStructs.h"
 #include "messages.h"
 #include <stdlib.h>
+#include <math.h>
 
 TCHAR debugText[TAM];
 unsigned int random;
@@ -82,8 +83,8 @@ void resetBall(Ball* ball)
 						? 1 
 						: -1;
 	ball->playerID = UNDEFINED_ID;
-	ball->position.x = GAME_BOARD_WIDTH / 2;
-	ball->position.y = GAME_BOARD_HEIGHT / 2;
+	ball->position.x = GAME_BOARD_WIDTH / 2 + GAME_BORDER_LEFT;
+	ball->position.y = GAME_BOARD_HEIGHT / 2 + GAME_BORDER_TOP;
 }
 
 void initializeBricks(GameVariables* pGameVariables)
@@ -98,7 +99,6 @@ void initializeBricks(GameVariables* pGameVariables)
 	for(int i = 0; i < MAX_BRICK_LINES; i++)
 	{
 		index = i * MAX_BRICKS_IN_LINE;
-		pGameData->brick[index].position.x = i % 2 ? BRICKS_MARGIN : 0;
 
 		for (int j = 0; j < MAX_BRICKS_IN_LINE; j++)
 		{
@@ -109,7 +109,7 @@ void initializeBricks(GameVariables* pGameVariables)
 			pGameData->numBricks++;
 			index = j + i * MAX_BRICKS_IN_LINE;
 			//Setup brick position
-			pGameData->brick[index].position.x += (BRICKS_WIDTH + BRICKS_MARGIN) * j + GAME_BORDER_LEFT;
+			pGameData->brick[index].position.x = (BRICKS_WIDTH + BRICKS_MARGIN) * j + GAME_BORDER_LEFT;
 			pGameData->brick[index].position.y = BRICKS_HEIGHT * i + GAME_BORDER_TOP;
 			pGameData->brick[index].hasBonus = FALSE;
 			rand_s(&random);
@@ -148,6 +148,7 @@ void sendGameUpdate(GameVariables gameVariables)
 
 void ballMovement(GameVariables* pGameVariables)
 {
+	//TODO: WaitForSingleObject mutex
 	GameData* pGameData = pGameVariables->pGameData;
 
 	for(int i=0; i < pGameData->numBalls; i++)

@@ -91,13 +91,12 @@ int receiveMessage(int messageType)
 	}
 }
 
-int receiveBroadcast()
+GameData receiveBroadcast()
 {
 	if(isLocalUser == TRUE)
 	{
 		WaitForSingleObject(hGameUpdateEvent, INFINITE);
-		_tprintf(TEXT("\nBall position x: %d y: %d\n"), pGameDataMemory->ball[0].position.x, pGameDataMemory->ball[0].position.y);
-		return pGameDataMemory->gameStatus;
+		return *pGameDataMemory;
 	} else
 	{
 		BOOL fSuccess;
@@ -115,18 +114,16 @@ int receiveBroadcast()
 
 			if (!fSuccess && GetLastError() != ERROR_MORE_DATA)
 				break;
-
-			_tprintf(TEXT("\nBall position x: %d y: %d\n"), gameData.ball[0].position.x, gameData.ball[0].position.y);
-
 		} while (!fSuccess);  // repeat loop if ERROR_MORE_DATA 
 
 		if (!fSuccess)
 		{
 			_tprintf(TEXT("ReadFile from pipe failed. GLE=%d\n"), GetLastError());
-			return -1;
+			gameData.gameStatus = LOGOUT;
+			return gameData;
 		}
 
-		return gameData.gameStatus;
+		return gameData;
 	}
 	
 }

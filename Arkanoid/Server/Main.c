@@ -630,22 +630,25 @@ void movePlayerBarrier(int playerId, int direction)
 		return;
 	}
 
-	int moveTo, nextPlayer;
+	//TODO: Adapt to barrier changes in size!
+
+	int moveTo, nextPlayer, barrierDimensions;
 	if(direction == MOVE_RIGHT)
 	{
 		moveTo = pGameDataMemory->barrier[index].position.x + gameConfigs.movementSpeed;
 		nextPlayer = getPlayerToTheRight(*pGameDataMemory, index);
+		barrierDimensions = pGameDataMemory->barrierDimensions * pGameDataMemory->barrier[index].sizeRatio;
 
 		if(nextPlayer != -1)
 		{
-			if(pGameDataMemory->barrier[nextPlayer].position.x < moveTo + pGameDataMemory->barrierDimensions)
+			if(pGameDataMemory->barrier[nextPlayer].position.x < moveTo + barrierDimensions)
 			{
 				_tprintf(TEXT("\nUser %s can't move right(player overlap)\n\n"), pGameDataMemory->player[index].username);
 				return;
 			}
 		}
 
-		if (moveTo + pGameDataMemory->barrierDimensions <= GAME_BORDER_RIGHT)
+		if (moveTo + barrierDimensions <= GAME_BORDER_RIGHT)
 		{
 			WaitForSingleObject(hGameLogicMutex, INFINITE);
 			pGameDataMemory->barrier[index].position.x = moveTo;
@@ -659,10 +662,11 @@ void movePlayerBarrier(int playerId, int direction)
 	{
 		moveTo = pGameDataMemory->barrier[index].position.x - gameConfigs.movementSpeed;
 		nextPlayer = getPlayerToTheLeft(*pGameDataMemory, index);
+		barrierDimensions = pGameDataMemory->barrierDimensions * pGameDataMemory->barrier[nextPlayer].sizeRatio;
 
 		if(nextPlayer != -1)
 		{
-			if (pGameDataMemory->barrier[nextPlayer].position.x + pGameDataMemory->barrierDimensions > moveTo)
+			if (pGameDataMemory->barrier[nextPlayer].position.x + barrierDimensions > moveTo)
 			{
 				_tprintf(TEXT("\nUser %s can't move left (player overlap)\n\n"), pGameDataMemory->player[index].username);
 				return;

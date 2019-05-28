@@ -11,7 +11,7 @@
 #include <winuser.h>
 #include "DLL.h"
 #include "util.h"
-#include "Constants.h"
+#include "constants.h"
 #include "setup.h"
 
 #define MAX_LOADSTRING 100
@@ -21,6 +21,8 @@ HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 BOOL shutdown = FALSE;							// used to signal errors that cause the server to shutdown
+GameData gameData;
+HWND gHwnd;
 
 HANDLE hGameThread;
 DWORD dwGameThreadId;
@@ -32,8 +34,6 @@ HANDLE hRegistryKey;
 TCHAR rightMovementKey;
 TCHAR leftMovementKey;
 
-HBITMAP hGameBackgroundBitmap;
-
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
@@ -42,6 +42,8 @@ INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	loginEventsDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK	settingsEventsDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 DWORD WINAPI		GameUpdate(LPVOID lpParam);
+void				drawGame(GameData gameData);
+void				drawGameBackground();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -80,8 +82,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     return (int) msg.wParam;
 }
-
-
 
 //
 //  FUNCTION: MyRegisterClass()
@@ -123,19 +123,52 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // Store instance handle in our global variable
 
+	//Setup client area
+   RECT rect = {0};
+   rect.right = DIM_X_FRAME;
+   rect.bottom = DIM_Y_FRAME;
+
+   AdjustWindowRect(
+	   &rect,
+	   WS_CAPTION |
+	   WS_BORDER | 
+	   WS_SYSMENU |
+	   WS_THICKFRAME | 
+	   WS_MINIMIZEBOX | 
+	   WS_MAXIMIZEBOX,
+	   TRUE
+   );
+
+   rect.right += abs(rect.left);
+   rect.bottom += abs(rect.top);
+	
    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      CW_USEDEFAULT, CW_USEDEFAULT, DIM_X_FRAME, DIM_Y_FRAME + 55, NULL, NULL, hInstance, NULL);
+      CW_USEDEFAULT, CW_USEDEFAULT, rect.right, rect.bottom, NULL, NULL, hInstance, NULL);
 
    if (!hWnd)
    {
       return FALSE;
    }
 
+   gHwnd = hWnd;
+
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
 
    return TRUE;
 }
+
+//Global variables used to draw on screen
+HDC hMemDC = NULL;
+HBITMAP hMemBitmap = NULL;
+HBRUSH hBrush = NULL;
+HDC hTempDC = NULL;
+
+HBITMAP hGameBackgroundBitmap;
+BITMAP gameBackgroundBitmap;
+
+HBITMAP hBricksBitmap[TOTAL_BRICK_TYPES];
+HICON hBallIcon;
 
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
@@ -151,7 +184,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	int xPos, yPos;
 	TCHAR letter;
-	RECT rt;
+	RECT rect;
+	HDC hDC;
+	PAINTSTRUCT ps;
 
     switch (message)
     {
@@ -177,19 +212,40 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 
 		//Load assets
-		hGameBackgroundBitmap = LoadBitmap(hInst, MAKEINTRESOURCE(IDB_ARKANOID_GAME));
+		hDC = GetDC(hWnd);
+		hMemDC = CreateCompatibleDC(hDC);
+		hMemBitmap = CreateCompatibleBitmap(hDC, DIM_X_FRAME, DIM_Y_FRAME);
+
+		SelectObject(hMemDC, hMemBitmap);
+
+		hGameBackgroundBitmap = (HBITMAP)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_ARKANOID_GAME), IMAGE_BITMAP, 0, 0, LR_DEFAULTSIZE);
+		GetObject(hGameBackgroundBitmap, sizeof(gameBackgroundBitmap), &gameBackgroundBitmap);
+
+		drawGameBackground();
+
+		ReleaseDC(hWnd, hDC);
+
+		//Load Bricks
+		hBricksBitmap[BRICK_RESISTANCE1_INDEX] = (HBITMAP)LoadImage(NULL, BRICK_RESISTANCE1_PATH, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+		hBricksBitmap[BRICK_RESISTANCE2_INDEX] = (HBITMAP)LoadImage(NULL, BRICK_RESISTANCE2_PATH, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+		hBricksBitmap[BRICK_RESISTANCE3_INDEX] = (HBITMAP)LoadImage(NULL, BRICK_RESISTANCE3_PATH, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+		hBricksBitmap[BRICK_RESISTANCE4_INDEX] = (HBITMAP)LoadImage(NULL, BRICK_RESISTANCE4_PATH, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+		hBricksBitmap[BRICK_BONUS_INDEX] = (HBITMAP)LoadImage(NULL, BRICK_BONUS_PATH, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+
+		hBallIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_BALL), IMAGE_ICON, 0, 0, LR_LOADTRANSPARENT);
 
 		//Game movement keys
 		setupMovementKeys(&hRegistryKey, &rightMovementKey, &leftMovementKey);
 
 		//Thread to handle the game updates
 		hGameThread = CreateThread(
-			NULL,						// default security attributes
-			0,				// use default stack size  
-			GameUpdate,					// thread function name
-			NULL,						// argument to thread function 
-			0,				// use default creation flags 
-			&dwGameThreadId);			// returns the thread identifier
+			NULL,					// default security attributes
+			0,						// use default stack size  
+			GameUpdate,				// thread function name
+			NULL,					// argument to thread function 
+			0,						// use default creation flags 
+			&dwGameThreadId);		// returns the thread identifier
+
 		break;
     case WM_COMMAND:
         {
@@ -236,18 +292,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			//TODO: Verify with barrier position
 		}
 		break;
+	case WM_ERASEBKGND:
+		return (LRESULT)1;
     case WM_PAINT:
-        {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hWnd, &ps);
-			GetClientRect(hWnd, &rt);
-			HDC hmemdc = CreateCompatibleDC(hdc);
-			SelectObject(hmemdc, hGameBackgroundBitmap);
-			BitBlt(hdc, 0,0, DIM_X_FRAME, DIM_Y_FRAME, hmemdc, 0, 0, SRCCOPY);
-            // TODO: Add any drawing code that uses hdc here...
-            EndPaint(hWnd, &ps);
-			DeleteDC(hmemdc);
-        }
+		if (inGame == TRUE)
+		{
+			drawGame(gameData);
+		} else
+		{
+			drawGameBackground();
+		}
+
+		hDC = BeginPaint(hWnd, &ps);
+
+		BitBlt(hDC, 0, 0, DIM_X_FRAME, DIM_Y_FRAME, hMemDC, 0, 0, SRCCOPY);
+
+		SelectObject(hDC, hMemDC);
+
+		EndPaint(hWnd, &ps);
         break;
 	case WM_CLOSE:
 		if (shutdown == TRUE) {
@@ -260,7 +322,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
     case WM_DESTROY:
+		//TODO: Delete the other objects
 		DeleteObject(hGameBackgroundBitmap);
+
+		for(int i = 0; i < TOTAL_BRICK_TYPES; i++)
+		{
+			DeleteObject(hBricksBitmap[i]);
+		}
+
+		DestroyIcon(hBallIcon);
+
+		DeleteObject(hMemBitmap);
+		DeleteDC(hMemDC);
 
 		RegCloseKey(hRegistryKey);
 		logout();
@@ -270,6 +343,104 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
+}
+
+DWORD WINAPI GameUpdate(LPVOID lpParam)
+{
+	int status;
+
+	while (shutdown == FALSE)
+	{
+		while (shutdown == FALSE)
+		{
+			gameData = receiveBroadcast();
+			status = gameData.gameStatus;
+
+			if (status == GAME_OVER)
+			{
+				break;
+			}
+			else if (status == LOGOUT)
+			{
+				inGame = FALSE;
+				shutdown = TRUE;
+				PostThreadMessage(mainThreadId, WM_QUIT, 0, 0);
+				return -1;
+			}
+			inGame = TRUE;
+
+			InvalidateRect(gHwnd, NULL, TRUE);
+		}
+
+		inGame = FALSE;
+		InvalidateRect(gHwnd, NULL, TRUE);
+
+		//Receives the top10
+		sendMessage(TOP10);
+		receiveMessage(TOP10);
+	}
+
+	return 1;
+}
+
+void drawGame(GameData gameData)
+{
+	hTempDC = CreateCompatibleDC(hMemDC);
+
+	SelectObject(hTempDC, hGameBackgroundBitmap);
+	BitBlt(hMemDC, 0, 0, DIM_X_FRAME, DIM_Y_FRAME, hTempDC, 0, 0, SRCCOPY);
+
+	//Draw bricks
+	for (int i = 0; i < MAX_BRICKS; i++)
+	{
+		if (gameData.brick[i].resistance > 0)
+		{
+			if (gameData.brick[i].hasBonus == TRUE)
+			{
+				SelectObject(hTempDC, hBricksBitmap[BRICK_BONUS_INDEX]);
+			} else
+			{
+				switch (gameData.brick[i].resistance)
+				{
+					case 1:
+						SelectObject(hTempDC, hBricksBitmap[BRICK_RESISTANCE1_INDEX]);
+						break;
+					case 2:
+						SelectObject(hTempDC, hBricksBitmap[BRICK_RESISTANCE2_INDEX]);
+						break;
+					case 3:
+						SelectObject(hTempDC, hBricksBitmap[BRICK_RESISTANCE3_INDEX]);
+						break;
+					case 4:
+						SelectObject(hTempDC, hBricksBitmap[BRICK_RESISTANCE4_INDEX]);
+						break;
+				}
+			}
+
+			BitBlt(hMemDC, gameData.brick[i].position.x, gameData.brick[i].position.y, BRICKS_WIDTH, BRICKS_HEIGHT, hTempDC, 0, 0, SRCCOPY);
+		}
+	}
+
+	SelectObject(hTempDC, hBallIcon);
+	//Draw balls
+	for (int i = 0; i < gameData.numBalls; i++)
+	{
+		DrawIcon(hMemDC, gameData.ball[i].position.x, gameData.ball[i].position.y, hBallIcon);
+	}
+
+	SelectObject(hMemDC, hTempDC);
+	DeleteDC(hTempDC);
+}
+
+void drawGameBackground()
+{
+	hTempDC = CreateCompatibleDC(hMemDC);
+
+	SelectObject(hTempDC, hGameBackgroundBitmap);
+	BitBlt(hMemDC, 0, 0, DIM_X_FRAME, DIM_Y_FRAME, hTempDC, 0, 0, BLACKNESS);
+	BitBlt(hMemDC, 0, 0, DIM_X_FRAME, DIM_Y_FRAME, hTempDC, 0, 0, SRCCOPY);
+
+	DeleteObject(hTempDC);
 }
 
 // Message handler for about box.
@@ -408,40 +579,4 @@ INT_PTR CALLBACK settingsEventsDialog(HWND hDlg, UINT message, WPARAM wParam, LP
 		break;
 	}
 	return (INT_PTR)FALSE;
-}
-
-DWORD WINAPI GameUpdate(LPVOID lpParam)
-{
-	int status;
-	while(shutdown == FALSE)
-	{
-		while (shutdown == FALSE)
-		{
-			status = receiveBroadcast();
-
-			if (status == GAME_OVER)
-			{
-				inGame = FALSE;
-				break;
-			}
-			else if (status == LOGOUT)
-			{
-				inGame = FALSE;
-				shutdown = TRUE;
-				PostThreadMessage(mainThreadId, WM_QUIT, 0, 0);
-				return -1;
-			}
-			inGame = TRUE;
-			//TODO: Update GUI
-			//Export the game memory pointer and update?
-		}
-
-		inGame = FALSE;
-
-		//Receives the top10
-		sendMessage(TOP10);
-		receiveMessage(TOP10);
-	}
-	
-	return 1;
 }

@@ -8,7 +8,6 @@
 #define IDD_ABOUTBOX                    103
 #define IDM_ABOUT                       104
 #define IDM_EXIT                        105
-#define IDI_CLIENTGUI                   107
 #define IDI_SMALL                       108
 #define IDC_CLIENTGUI                   109
 #define IDR_MAINFRAME                   128
@@ -18,6 +17,9 @@
 #define IDI_LOGO                        142
 #define IDB_BITMAP3                     145
 #define IDD_SETTINGS                    146
+#define IDB_BITMAP1                     148
+#define IDI_ICON2                       149
+#define IDI_BALL                        149
 #define IDC_USERNAME                    1004
 #define IDC_CHECK1                      1005
 #define IDC_REMOTE                      1005
@@ -37,7 +39,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        147
+#define _APS_NEXT_RESOURCE_VALUE        150
 #define _APS_NEXT_COMMAND_VALUE         32775
 #define _APS_NEXT_CONTROL_VALUE         1011
 #define _APS_NEXT_SYMED_VALUE           110
