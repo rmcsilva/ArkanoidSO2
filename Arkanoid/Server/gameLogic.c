@@ -5,7 +5,6 @@
 #include "gameStructs.h"
 #include "messages.h"
 #include <stdlib.h>
-#include <math.h>
 
 TCHAR debugText[TAM];
 unsigned int random;
@@ -15,13 +14,30 @@ DWORD WINAPI GameLogic(LPVOID lpParam)
 	GameVariables* pGameVariables = (GameVariables*)lpParam;
 	GameData* pGameData = pGameVariables->pGameData;
 
-	int counter = 0;
+	HANDLE hGameWait;
+	LARGE_INTEGER timeToWait;
+	timeToWait.QuadPart = -50000LL;
+
+	// Create an unnamed waitable timer.
+	hGameWait = CreateWaitableTimer(NULL, TRUE, NULL);
+	if (NULL == hGameWait)
+	{
+		_tprintf(TEXT("CreateWaitableTimer failed (%d)\n"), GetLastError());
+		return -1;
+	}
 
 	//TODO: Initialize Game Variables
 	initializeGame(pGameVariables);
 
 	while (pGameData->gameStatus != GAME_OVER)
 	{
+		// Set a timer to wait.
+		if (!SetWaitableTimer(hGameWait, &timeToWait, 0, NULL, NULL, 0))
+		{
+			_tprintf(TEXT("SetWaitableTimer failed (%d)\n"), GetLastError());
+			return -1;
+		}
+
 		if(pGameData->lives == 0)
 		{
 			break;
@@ -34,17 +50,10 @@ DWORD WINAPI GameLogic(LPVOID lpParam)
 
 		ballMovement(pGameVariables);
 
-		if (counter == 100)
-		{
-			pGameData->gameStatus = GAME_OVER;
-		}
-		else
-		{
-			counter++;
-		}
 
 		sendGameUpdate(*pGameVariables);
-		Sleep(1000);
+
+		WaitForSingleObject(hGameWait, INFINITE);
 	}
 
 	pGameData->gameStatus = GAME_OVER;
@@ -98,8 +107,6 @@ void initializeBricks(GameVariables* pGameVariables)
 
 	for(int i = 0; i < MAX_BRICK_LINES; i++)
 	{
-		index = i * MAX_BRICKS_IN_LINE;
-
 		for (int j = 0; j < MAX_BRICKS_IN_LINE; j++)
 		{
 			if(pGameData->numBricks == pGameVariables->gameConfigs.numBricks)
@@ -123,6 +130,7 @@ void initializeBricks(GameVariables* pGameVariables)
 				pGameData->brick[index].hasBonus = TRUE;
 				rand_s(&random);
 				pGameData->brick[index].bonusType = random % TOTAL_BONUS;
+				pGameData->brick[index].resistance = 1;
 			}
 		}
 	}
@@ -153,6 +161,7 @@ void ballMovement(GameVariables* pGameVariables)
 
 	for(int i=0; i < pGameData->numBalls; i++)
 	{
+		//Advance ball according to speed
 		int velocity = pGameVariables->gameConfigs.movementSpeed * pGameData->ball[i].velocityRatio;
 		pGameData->ball[i].position.x += velocity * pGameData->ball[i].directionX;
 		pGameData->ball[i].position.y += velocity * pGameData->ball[i].directionY;
@@ -160,6 +169,131 @@ void ballMovement(GameVariables* pGameVariables)
 		_stprintf_s(debugText, TAM, TEXT("\nBall %d position x: %d y: %d\n"), i, pGameData->ball[0].position.x, pGameData->ball[0].position.y);
 		OutputDebugString(debugText);
 	}
+
+	for (int i = 0; i < pGameData->numBalls; i++)
+	{
+		detectBallCollision(pGameVariables, i);
+	}
+}
+
+void detectBallCollision(GameVariables* pGameVariables, int index)
+{
+	GameData* pGameData = pGameVariables->pGameData;
+	Ball* ball = &pGameData->ball[index];
+
+	//Game Border Right or Left Collisions
+	if (ball->position.x + GAME_BALL_WIDTH >= GAME_BORDER_RIGHT)
+	{
+		//Right border hit -> Move left instead
+		ball->directionX = DIRECTION_X_LEFT;
+	} else if (ball->position.x <= GAME_BORDER_LEFT)
+	{
+		//Left border hit -> Move right instead
+		ball->directionX = DIRECTION_X_RIGHT;
+	} 
+	
+	//Game Border Top or Bottom Collisions
+	if (ball->position.y <= GAME_BORDER_TOP)
+	{
+		//Top border hit -> Move down instead
+		ball->directionY = DIRECTION_Y_DOWN;
+	} else if (ball->position.y + GAME_BALL_HEIGHT >= DIM_Y_FRAME)
+	{
+		//Bottom border hit -> Move up instead
+		//TODO: Remove life and reset ball
+		ball->directionY = DIRECTION_Y_UP;
+	}
+
+	//Brick collisions
+	//Check if ball is going up or down
+	int y = ball->position.y, x = ball->position.x;
+	if(ball->directionY == DIRECTION_Y_UP)
+	{
+		if(ball->directionX == DIRECTION_X_RIGHT)
+		{
+			//Ball is going up and right
+			y += GAME_BALL_HITBOX;
+			x += GAME_BALL_WIDTH - GAME_BALL_HITBOX;
+			ballAndBrickCollision(pGameVariables, index, x, y, DIRECTION_LEFT_TO_RIGHT);
+		} else if(ball->directionX == DIRECTION_X_LEFT)
+		{
+			//Ball is going up and left
+			y += GAME_BALL_HITBOX;
+			x += GAME_BALL_HITBOX;
+			ballAndBrickCollision(pGameVariables, index, x, y, DIRECTION_RIGHT_TO_LEFT);
+		}
+	} else if(ball->directionY == DIRECTION_Y_DOWN)
+	{	
+		if (ball->directionX == DIRECTION_X_RIGHT)
+		{
+			//Ball is going down and right
+			x += GAME_BALL_WIDTH - GAME_BALL_HITBOX;
+			y += GAME_BALL_HEIGHT - GAME_BALL_HITBOX;
+			ballAndBrickCollision(pGameVariables, index, x, y, DIRECTION_LEFT_TO_RIGHT);
+		}
+		else if (ball->directionX == DIRECTION_X_LEFT)
+		{
+			//Ball is going down and left
+			y += GAME_BALL_HEIGHT - GAME_BALL_HITBOX;
+			ballAndBrickCollision(pGameVariables, index, x, y, DIRECTION_RIGHT_TO_LEFT);
+		}
+	}
+
+	//TODO: Check bonus collision 
+}
+
+void ballAndBrickCollision(GameVariables* pGameVariables, int index, int x, int y, int directionX)
+{
+	GameData* pGameData = pGameVariables->pGameData;
+	Ball* ball = &pGameData->ball[index];
+
+	if (ball->position.y >= GAME_BORDER_TOP && ball->position.y <= GAME_BRICKS_BOTTOM)
+	{
+		//Convert ball position to brick index
+		int brickIndexX = (x - GAME_BORDER_LEFT) / (BRICKS_WIDTH + BRICKS_MARGIN);
+		int brickIndexY = (y - GAME_BORDER_TOP) / BRICKS_HEIGHT;
+
+		int brickIndex = brickIndexX + (brickIndexY - 1) * MAX_BRICKS_IN_LINE;
+
+		Brick* brick = &pGameData->brick[brickIndex];
+
+		if (brick->resistance > 0)
+		{
+			//Hit was from below the brick
+			if (y <= brick->position.y + BRICKS_HEIGHT / 2)
+			{
+				ball->directionY *= -1;
+			}
+
+			//Hit was from above the brick
+			if (y >= brick->position.y + BRICKS_HEIGHT / 2)
+			{
+				ball->directionY *= -1;
+			}
+
+			//Hit was on left
+			if (x <= brick->position.x + GAME_BRICK_HITBOX)
+			{
+				//Switch direction if the hit was going from left to the right
+				if(directionX == DIRECTION_LEFT_TO_RIGHT)
+				{
+					ball->directionX = DIRECTION_X_LEFT;
+				}
+			}
+
+			//Hit was on right
+			if (x >= brick->position.x + BRICKS_WIDTH / 2 + GAME_BRICK_HITBOX)
+			{
+				//Switch direction if the hit was from the right too
+				if(directionX == DIRECTION_RIGHT_TO_LEFT)
+				{
+					ball->directionX = DIRECTION_X_RIGHT;
+				}
+			}
+
+			pGameData->brick[brickIndex].resistance--;
+		}
+	} 
 }
 
 void assignUsersToGame(GameData* pGameData, Player* users, int currentUsers)

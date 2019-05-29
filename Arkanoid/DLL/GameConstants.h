@@ -1,4 +1,15 @@
 #pragma once
+//Game constants 
+#define MAX_PLAYERS 20
+#define MAX_TOP_PLAYERS 10
+#define MAX_BRICKS_IN_LINE 14
+#define MAX_BRICK_LINES 7
+#define MAX_BRICKS (MAX_BRICKS_IN_LINE * MAX_BRICK_LINES)
+#define BRICKS_MARGIN 2
+#define BRICKS_MAX_RESISTANCE 4
+#define MAX_BONUS 5
+#define MAX_BALLS 3
+
 //Game dimensions
 #define DIM_X_FRAME 800
 #define DIM_Y_FRAME 600
@@ -15,21 +26,15 @@
 
 #define GAME_SCORE_X 620
 
+#define GAME_BALL_WIDTH 25
+#define GAME_BALL_HEIGHT 25
+
 #define GAME_BARRIER_Y 560
 #define GAME_BARRIER_HEIGHT 35
 
-//Game constants 
-#define MAX_PLAYERS 20
-#define MAX_TOP_PLAYERS 10
-#define MAX_BRICKS_IN_LINE 14
-#define MAX_BRICK_LINES 7
-#define MAX_BRICKS (MAX_BRICKS_IN_LINE * MAX_BRICK_LINES)
 #define BRICKS_WIDTH 48
 #define BRICKS_HEIGHT 24
-#define BRICKS_MARGIN 2
-#define BRICKS_MAX_RESISTANCE 4
-#define MAX_BONUS 5
-#define MAX_BALLS 3
+#define GAME_BRICKS_BOTTOM (BRICKS_HEIGHT * MAX_BRICK_LINES + GAME_BORDER_TOP)
 
 //Bonus types
 #define TOTAL_BONUS 6
