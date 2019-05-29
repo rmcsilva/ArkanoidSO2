@@ -37,6 +37,7 @@ extern "C" {
 	//Global DLL variables
 	extern DLL_IMP_API BOOL isLocalUser;
 	extern DLL_IMP_API int inGame;
+	extern DLL_IMP_API int id;
 	extern DLL_IMP_API TCHAR username[TAM];
 	extern DLL_IMP_API TCHAR top10[TOP10_SIZE];
 	//Imported/Exported functions

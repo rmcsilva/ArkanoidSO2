@@ -17,7 +17,8 @@ typedef struct Ball {
 	int directionY;
 	int velocityRatio;
 	Position position;
-	int playerID;
+	int playerIndex;
+	BOOL inPlay;
 }Ball;
 
 typedef struct Barrier {

@@ -81,6 +81,8 @@ DWORD hGameUpdateNamedPipeThreadId;
 GameConfigs gameConfigs;
 HANDLE hGameLogicMutex;
 
+TCHAR debugText[MAX];
+
 int _tmain(int argc, TCHAR* argv[])
 {
 	ClientMessageControl clientRequests;
@@ -643,7 +645,8 @@ void movePlayerBarrier(int playerId, int direction)
 		{
 			if(pGameDataMemory->barrier[nextPlayer].position.x < moveTo + barrierDimensions)
 			{
-				_tprintf(TEXT("\nUser %s can't move right(player overlap)\n\n"), pGameDataMemory->player[index].username);
+				_stprintf_s(debugText, MAX, TEXT("\nUser %s can't move right(player overlap)\n\n"), pGameDataMemory->player[index].username);
+				OutputDebugString(debugText);
 				return;
 			}
 		}
@@ -653,11 +656,12 @@ void movePlayerBarrier(int playerId, int direction)
 			WaitForSingleObject(hGameLogicMutex, INFINITE);
 			pGameDataMemory->barrier[index].position.x = moveTo;
 			ReleaseMutex(hGameLogicMutex);
-			_tprintf(TEXT("\nUser %s moved right\n\n"), pGameDataMemory->player[index].username);
+			_stprintf_s(debugText, MAX, TEXT("\nUser %s moved right\n\n"), pGameDataMemory->player[index].username);
+			OutputDebugString(debugText);
 			return;
 		}
-		_tprintf(TEXT("\nUser %s can't move right\n\n"), pGameDataMemory->player[index].username);
-		
+		_stprintf_s(debugText, MAX, TEXT("\nUser %s can't move right\n\n"), pGameDataMemory->player[index].username);
+		OutputDebugString(debugText);
 	} else if(direction == MOVE_LEFT)
 	{
 		moveTo = pGameDataMemory->barrier[index].position.x - gameConfigs.movementSpeed;
@@ -668,7 +672,8 @@ void movePlayerBarrier(int playerId, int direction)
 		{
 			if (pGameDataMemory->barrier[nextPlayer].position.x + barrierDimensions > moveTo)
 			{
-				_tprintf(TEXT("\nUser %s can't move left (player overlap)\n\n"), pGameDataMemory->player[index].username);
+				_stprintf_s(debugText, MAX, TEXT("\nUser %s can't move left (player overlap)\n\n"), pGameDataMemory->player[index].username);
+				OutputDebugString(debugText);
 				return;
 			}
 		}
@@ -678,12 +683,13 @@ void movePlayerBarrier(int playerId, int direction)
 			WaitForSingleObject(hGameLogicMutex, INFINITE);
 			pGameDataMemory->barrier[index].position.x = moveTo;
 			ReleaseMutex(hGameLogicMutex);
-			_tprintf(TEXT("\nUser %s moved left\n\n"), pGameDataMemory->player[index].username);
+			_stprintf_s(debugText, MAX, TEXT("\nUser %s moved left\n\n"), pGameDataMemory->player[index].username);
+			OutputDebugString(debugText);
 			return;
 		}
-		_tprintf(TEXT("\nUser %s can't move left\n\n"), pGameDataMemory->player[index].username);
+		_stprintf_s(debugText, MAX, TEXT("\nUser %s can't move left\n\n"), pGameDataMemory->player[index].username);
+		OutputDebugString(debugText);
 	}
-
 }
 
 int checkIfUserIsInGame(int playerId)
