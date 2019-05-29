@@ -35,6 +35,8 @@ HANDLE hRegistryKey;
 TCHAR rightMovementKey;
 TCHAR leftMovementKey;
 
+HFONT hScoreFont;
+
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
@@ -170,6 +172,8 @@ BITMAP gameBackgroundBitmap;
 
 HBITMAP hBricksBitmap[TOTAL_BRICK_TYPES];
 HICON hBallIcon;
+HICON hLivesIcon;
+RECT scoreBox;
 
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
@@ -234,6 +238,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		hBricksBitmap[BRICK_BONUS_INDEX] = (HBITMAP)LoadImage(NULL, BRICK_BONUS_PATH, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 
 		hBallIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_BALL), IMAGE_ICON, 0, 0, LR_LOADTRANSPARENT);
+		hLivesIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_LIVES), IMAGE_ICON, 0, 0, LR_LOADTRANSPARENT);
+
+		scoreBox.left = GAME_SCORE_LEFT;
+		scoreBox.top = GAME_SCORE_TOP;
+		scoreBox.right = GAME_SCORE_RIGHT;
+		scoreBox.bottom = GAME_SCORE_BOTTOM;
+
+		hScoreFont = CreateFont(GAME_SCORE_FONT_SIZE, 0, 0, 0, FW_DONTCARE, FALSE, TRUE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
+			CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, TEXT("Impact"));
 		//TODO: Load the rest of the objects
 
 		//Game movement keys
@@ -340,6 +353,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 
 		DestroyIcon(hBallIcon);
+		DestroyIcon(hLivesIcon);
+
+		DeleteObject(hScoreFont);
 
 		DeleteObject(hMemBitmap);
 		DeleteDC(hMemDC);
@@ -462,6 +478,22 @@ void drawGame(GameData gameData)
 		barrier.bottom = DIM_Y_FRAME;
 		FillRect(hMemDC, &barrier, (HBRUSH)(COLOR_WINDOW + i));
 	}
+
+	//Draw Lives
+	int livesPositionX = GAME_LIVES_START_X;
+	for(int i = 0; i < gameData.lives; i++)
+	{
+		DrawIcon(hMemDC, livesPositionX, GAME_LIVES_START_Y, hLivesIcon);
+		livesPositionX += GAME_LIVES_WIDTH + GAME_LIVES_MARGIN;
+	}
+
+	//Draw score
+	SelectObject(hMemDC, hScoreFont);
+	SetTextColor(hMemDC, RGB(255, 255, 255));
+	SetBkMode(hMemDC, TRANSPARENT);
+	TCHAR score[12];
+	_stprintf_s(score, 12, TEXT("%d"), gameData.player[playerIndex].score);
+	DrawText(hMemDC, &score, -1, &scoreBox, DT_CENTER);
 		
 	SelectObject(hMemDC, hTempDC);
 	DeleteDC(hTempDC);

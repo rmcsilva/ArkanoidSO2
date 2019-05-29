@@ -66,5 +66,8 @@
     <Image Include="Assets\Ball.ico">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="Assets\Lives.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>
