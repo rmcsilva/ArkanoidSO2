@@ -26,6 +26,7 @@ HWND gHwnd;
 
 HANDLE hGameThread;
 DWORD dwGameThreadId;
+int playerIndex = UNDEFINED_ID;
 
 DWORD mainThreadId;								
 
@@ -233,6 +234,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		hBricksBitmap[BRICK_BONUS_INDEX] = (HBITMAP)LoadImage(NULL, BRICK_BONUS_PATH, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 
 		hBallIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_BALL), IMAGE_ICON, 0, 0, LR_LOADTRANSPARENT);
+		//TODO: Load the rest of the objects
 
 		//Game movement keys
 		setupMovementKeys(&hRegistryKey, &rightMovementKey, &leftMovementKey);
@@ -287,9 +289,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if(inGame == TRUE)
 		{
 			xPos = GET_X_LPARAM(lParam);
-			yPos = GET_Y_LPARAM(lParam);
 
-			//TODO: Verify with barrier position
+			int barrierX = gameData.barrier[playerIndex].position.x;
+
+			if(xPos > barrierX + gameData.barrierDimensions / 2)
+			{
+				sendMessage(MOVE_RIGHT);
+			} else if(xPos < barrierX + gameData.barrierDimensions / 2)
+			{
+				sendMessage(MOVE_LEFT);
+			}
 		}
 		break;
 	case WM_ERASEBKGND:
@@ -367,17 +376,32 @@ DWORD WINAPI GameUpdate(LPVOID lpParam)
 				PostThreadMessage(mainThreadId, WM_QUIT, 0, 0);
 				return -1;
 			}
+
+			if(playerIndex == UNDEFINED_ID)
+			{
+				for (int i = 0; i < gameData.numPlayers; i++)
+				{
+					if (gameData.player[i].id == id)
+					{
+						playerIndex = i;
+						break;
+					}
+				}
+			}
 			inGame = TRUE;
 
 			InvalidateRect(gHwnd, NULL, TRUE);
 		}
 
 		inGame = FALSE;
+		playerIndex = UNDEFINED_ID;
+
 		InvalidateRect(gHwnd, NULL, TRUE);
 
 		//Receives the top10
 		sendMessage(TOP10);
 		receiveMessage(TOP10);
+		//TODO: Show the top10
 	}
 
 	return 1;
@@ -428,6 +452,17 @@ void drawGame(GameData gameData)
 		DrawIcon(hMemDC, gameData.ball[i].position.x, gameData.ball[i].position.y, hBallIcon);
 	}
 
+	//Draw Barrier
+	RECT barrier;
+	for(int i = 0; i < gameData.numPlayers; i++)
+	{
+		barrier.left = gameData.barrier[i].position.x;
+		barrier.top = gameData.barrier[i].position.y;
+		barrier.right = gameData.barrier[i].position.x + gameData.barrierDimensions * gameData.barrier[i].sizeRatio;
+		barrier.bottom = DIM_Y_FRAME;
+		FillRect(hMemDC, &barrier, (HBRUSH)(COLOR_WINDOW + i));
+	}
+		
 	SelectObject(hMemDC, hTempDC);
 	DeleteDC(hTempDC);
 }
