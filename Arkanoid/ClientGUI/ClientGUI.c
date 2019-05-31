@@ -471,9 +471,9 @@ void drawGame(GameData gameData)
 	}
 
 	//Draw bonus
-	for (int i = 0, j = 0; j < gameData.numBonus; i++)
+	for (int i = 0; i < MAX_BONUS; i++)
 	{
-		if (gameData.bonus[i].isActive == TRUE)
+		if (gameData.bonus[i].status == BONUS_IN_PLAY)
 		{
 			HICON hBonus = NULL;
 			switch (gameData.bonus[i].type)
@@ -492,18 +492,16 @@ void drawGame(GameData gameData)
 					break;
 			}
 			DrawIcon(hMemDC, gameData.bonus[i].position.x, gameData.bonus[i].position.y, hBonus);
-			j++;
 		}
 	}
 
 	SelectObject(hTempDC, hBallIcon);
 	//Draw balls
-	for (int i = 0, j = 0; j < gameData.numBalls; i++)
+	for (int i = 0; i < MAX_BALLS; i++)
 	{
 		if (gameData.ball[i].inPlay == TRUE)
 		{
 			DrawIcon(hMemDC, gameData.ball[i].position.x, gameData.ball[i].position.y, hBallIcon);
-			j++;
 		}
 	}
 

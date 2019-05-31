@@ -19,6 +19,13 @@
 #define DIRECTION_RIGHT_TO_LEFT 0
 #define DIRECTION_LEFT_TO_RIGHT 1
 
+//Bonus values
+#define SPEED_UP_INCREASE 0.2
+#define SLOW_DOWN_DECREASE 0.2
+
+#define SPEED_UP_ACTIVATE_VALUE 2
+#define SLOW_DOWN_ACTIVATE_VALUE 0.6
+
 typedef struct GameConfigs {
 	int maxPlayers;
 	int levels;
@@ -38,9 +45,17 @@ typedef struct GameVariables {
 	PipeData* namedPipesData;
 }GameVariables;
 
+typedef struct BonusTimerVariables {
+	GameVariables* pGameVariables;
+	int bonusIndex;
+}BonusTimerVariables;
+
 DWORD WINAPI GameLogic(LPVOID lpParam);
-DWORD WINAPI BallLogic(LPVOID lpParam);
 DWORD WINAPI BonusLogic(LPVOID lpParam);
+DWORD WINAPI BonusDuration(LPVOID lpParam);
+VOID CALLBACK BonusEffectAPCProc(LPVOID lpArg, DWORD dwTimerLowValue, DWORD dwTimerHighValue);
+BOOL ballBonusIncrease(GameData* pGameData);
+BOOL ballBonusDecrease(GameData* pGameData);
 void initializeGame(GameVariables* pGameVariables);
 void resetBall(Ball* ball);
 void initializeBricks(GameVariables* pGameVariables);

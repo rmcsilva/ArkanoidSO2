@@ -3,9 +3,15 @@
 #include "resourceConstants.h"
 #include "gameConstants.h"
 
+//Game Status
 #define GAME_LOBBY 0
 #define GAME_ACTIVE 1
 #define GAME_OVER  2
+
+//Bonus status
+#define BONUS_INACTIVE 0
+#define BONUS_IN_PLAY 1
+#define BONUS_CAUGHT 2
 
 typedef struct Position {
 	int x;
@@ -15,7 +21,7 @@ typedef struct Position {
 typedef struct Ball {
 	int directionX;
 	int directionY;
-	int velocityRatio;
+	double velocityRatio;
 	Position position;
 	int playerIndex;
 	BOOL inPlay;
@@ -37,7 +43,7 @@ typedef struct Brick {
 typedef struct Bonus {
 	Position position;
 	int type;
-	BOOL isActive;
+	int status;
 }Bonus;
 
 typedef struct Player {

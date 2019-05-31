@@ -38,10 +38,10 @@
     <ClInclude Include="ui.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="gameLogic.h">
+    <ClInclude Include="namedPipeLogic.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="namedPipeLogic.h">
+    <ClInclude Include="gameLogic.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

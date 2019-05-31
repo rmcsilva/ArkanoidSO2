@@ -2,6 +2,8 @@
 
 #define _10MILLISECONDS -100000LL
 #define _100MILLISECONDS -100000LL
+#define _1SECOND -10000000LL
+
 #include "stdafx.h"
 #include "gameLogic.h"
 #include "gameStructs.h"
@@ -12,6 +14,10 @@ TCHAR debugText[MAX];
 unsigned int random;
 
 HANDLE hBonusEvent;
+
+HANDLE hBonusTimeoutEvent[MAX_BONUS];
+
+int bonusCounter = 0;
 
 DWORD WINAPI GameLogic(LPVOID lpParam)
 {
@@ -54,18 +60,19 @@ DWORD WINAPI GameLogic(LPVOID lpParam)
 			_tprintf(TEXT("SetWaitableTimer failed (%d)\n"), GetLastError());
 			return -1;
 		}
-		
-		if(pGameData->lives == 0)
+
+		if (pGameData->lives == 0)
 		{
 			_tprintf(TEXT("\nGame Over!! Out of lives! Bad luck, try again!\n\n"));
 			break;
-		} else if (pGameVariables->gameConfigs.levels == pGameData->level)
+		}
+		else if (pGameVariables->gameConfigs.levels == pGameData->level)
 		{
 			_tprintf(TEXT("\nGame Over!! All levels cleared! Niceee\n\n"));
 			break;
 		}
 
-		if(pGameData->numBricks == 0)
+		if (pGameData->numBricks == 0)
 		{
 			//TODO: Advance level, reset balls, reset bricks
 		}
@@ -101,15 +108,27 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 	HANDLE hBonusWait;
 	LARGE_INTEGER timeToWait;
 
+	HANDLE hBonusDurationThread;
+	DWORD hBonusDurationThreadID;
+
 	timeToWait.QuadPart = _100MILLISECONDS;
 
-	// Create an unnamed waitable timer.
+	// Create an unnamed waitable timer for the bonus movement.
 	hBonusWait = CreateWaitableTimer(NULL, TRUE, NULL);
 	if (hBonusWait == NULL)
 	{
 		_tprintf(TEXT("CreateWaitableTimer failed (%d)\n"), GetLastError());
 		return -1;
 	}
+
+	//Thread to handle the bonus logic
+	hBonusDurationThread = CreateThread(
+		NULL,						// default security attributes
+		0,							// use default stack size  
+		BonusDuration,				// thread function name
+		(LPVOID)pGameVariables,		// argument to thread function 
+		0,							// use default creation flags 
+		&hBonusDurationThreadID);	// returns the thread identifier 
 
 	while (pGameData->gameStatus != GAME_OVER)
 	{
@@ -124,9 +143,9 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 			return -1;
 		}
 
-		for (int i = 0, j = 0; i < pGameVariables->gameConfigs.maxBonus; i++)
+		for (int i = 0; i < pGameVariables->gameConfigs.maxBonus; i++)
 		{
-			if (pGameData->bonus[i].isActive == TRUE)
+			if (pGameData->bonus[i].status == BONUS_IN_PLAY)
 			{
 				pGameData->bonus[i].position.y += pGameVariables->gameConfigs.movementSpeed;
 
@@ -143,28 +162,50 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 						int barrierDimension = pGameData->barrierDimensions * pGameData->barrier[j].sizeRatio;
 						if (x >= pGameData->barrier[j].position.x && x <= pGameData->barrier[j].position.x + barrierDimension)
 						{
-							pGameData->bonus[i].isActive = FALSE;
-							pGameData->numBonus--;
 							switch (pGameData->bonus->type)
 							{
 								case BONUS_SPEED_UP:
+									pGameData->bonus[i].status = BONUS_CAUGHT;
+									if (ballBonusIncrease(pGameData) == TRUE)
+									{
+										SetEvent(hBonusTimeoutEvent[i]);
+									} else
+									{
+										pGameData->bonus[i].status = BONUS_INACTIVE;
+										pGameData->numBonus--;
+									}
 									break;
 								case BONUS_SLOW_DOWN:
+									pGameData->bonus[i].status = BONUS_CAUGHT;
+									if (ballBonusDecrease(pGameData) == TRUE)
+									{
+										SetEvent(hBonusTimeoutEvent[i]);
+									} else
+									{
+										pGameData->bonus[i].status = BONUS_INACTIVE;
+										pGameData->numBonus--;
+									}
 									break;
 								case BONUS_EXTRA_LIFE:
+									pGameData->bonus[i].status = BONUS_INACTIVE;
+									pGameData->numBonus--;
 									pGameData->lives++;
 									break;
 								case BONUS_TRIPLE_BALL:
+									pGameData->bonus[i].status = BONUS_INACTIVE;
+									pGameData->numBonus--;
 									break;
 							}
+
 							OutputDebugString(TEXT("\nPlayer catched a bonus!!\n"));
 							break;
 						}
 					}
-				} else if(yStart >= DIM_Y_FRAME)
+				}
+				else if (yStart >= DIM_Y_FRAME)
 				{
 					//Bonus is out of the screen
-					pGameData->bonus[i].isActive = FALSE;
+					pGameData->bonus[i].status = BONUS_INACTIVE;
 					pGameData->numBonus--;
 				}
 			}
@@ -176,7 +217,139 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 		}
 	}
 
+	SetEvent(hBonusTimeoutEvent[0]);
+	WaitForSingleObject(hBonusDurationThread, INFINITE);
+
 	return 1;
+}
+
+DWORD WINAPI BonusDuration(LPVOID lpParam)
+{
+	GameVariables* pGameVariables = (GameVariables*)lpParam;
+	GameData* pGameData = pGameVariables->pGameData;
+
+	HANDLE hBonusEffectTimer[MAX_BONUS];
+	LARGE_INTEGER bonusEffectTime;
+
+	bonusEffectTime.QuadPart = _1SECOND * pGameVariables->gameConfigs.bonusDuration;
+
+	int maxBonus = pGameVariables->gameConfigs.maxBonus;
+
+	for (int i = 0; i < maxBonus; i++)
+	{
+		// Create unnamed auto-reset waitable timer to control the bonus duration;
+		hBonusEffectTimer[i] = CreateWaitableTimer(NULL, FALSE, NULL);
+		//Create event
+		hBonusTimeoutEvent[i] = CreateEvent(NULL, FALSE, FALSE, NULL);
+	}
+
+	DWORD dwWait, i;
+
+	while (pGameData->gameStatus != GAME_OVER)
+	{
+		dwWait = WaitForMultipleObjectsEx(maxBonus, hBonusTimeoutEvent, FALSE, INFINITE, TRUE);
+
+		// dwWait shows which pipe completed the operation. 
+		i = dwWait - WAIT_OBJECT_0;  // determines which pipe 
+
+		if (i < 0 || i > (maxBonus - 1))
+		{
+			continue;
+		}
+
+		BonusTimerVariables bonusTimerVariables;
+		bonusTimerVariables.pGameVariables = pGameVariables;
+		bonusTimerVariables.bonusIndex = i;
+
+		SetWaitableTimer(
+			hBonusEffectTimer[i],	// Handle to the timer object
+			&bonusEffectTime,		// When timer will become signaled
+			0,						// Non-Periodic timer
+			BonusEffectAPCProc,		// Completion routine
+			&bonusTimerVariables,	// Argument to the completion routine
+			FALSE);					// Do not restore a suspended system
+
+	}
+
+	return 1;
+}
+
+VOID CALLBACK BonusEffectAPCProc(
+	LPVOID lpArg,               // Data value
+	DWORD dwTimerLowValue,      // Timer low value
+	DWORD dwTimerHighValue)		// Timer high value
+{
+	// Formal parameters not used.
+	UNREFERENCED_PARAMETER(dwTimerLowValue);
+	UNREFERENCED_PARAMETER(dwTimerHighValue);
+
+	BonusTimerVariables* pBonusTimerVariables = (BonusTimerVariables*)lpArg;
+
+	GameData* pGameData = pBonusTimerVariables->pGameVariables->pGameData;
+
+	double percentage = 0;
+
+	switch (pGameData->bonus[pBonusTimerVariables->bonusIndex].type)
+	{
+		case BONUS_SPEED_UP:
+			//Reduce ball speed according to the value it was increased 
+			percentage = -SPEED_UP_INCREASE;
+			break;
+		case BONUS_SLOW_DOWN:
+			//Raise ball speed according to the value it was decreased 
+			percentage = SLOW_DOWN_DECREASE;
+			break;
+		default:
+			return;
+	}
+
+	for (int i = 0; i < MAX_BALLS; i++)
+	{
+		if (pGameData->ball[i].inPlay == TRUE)
+		{
+			pGameData->ball[i].velocityRatio += percentage;
+		}
+	}
+
+	pGameData->bonus[pBonusTimerVariables->bonusIndex].status = BONUS_INACTIVE;
+	pGameData->numBonus--;
+
+	OutputDebugString(TEXT("\Bonus timed out:\n\n"));
+	MessageBeep(0);
+}
+
+BOOL ballBonusIncrease(GameData* pGameData)
+{
+	BOOL bonusActivated = FALSE;
+	for (int i = 0; i < MAX_BALLS; ++i)
+	{
+		if (pGameData->ball[i].inPlay == TRUE)
+		{
+			if (pGameData->ball[i].velocityRatio < SPEED_UP_ACTIVATE_VALUE)
+			{
+				pGameData->ball[i].velocityRatio += SPEED_UP_INCREASE;
+				bonusActivated = TRUE;
+			}
+		}
+	}
+	return bonusActivated;
+}
+
+BOOL ballBonusDecrease(GameData* pGameData)
+{
+	BOOL bonusActivated = FALSE;
+	for (int i = 0; i < MAX_BALLS; ++i)
+	{
+		if (pGameData->ball[i].inPlay == TRUE)
+		{
+			if (pGameData->ball[i].velocityRatio > SLOW_DOWN_ACTIVATE_VALUE)
+			{
+				pGameData->ball[i].velocityRatio -= SLOW_DOWN_DECREASE;
+				bonusActivated = TRUE;
+			}
+		}
+	}
+	return bonusActivated;
 }
 
 void initializeGame(GameVariables* pGameVariables)
@@ -207,9 +380,9 @@ void initializeGame(GameVariables* pGameVariables)
 	);
 
 	pGameData->numBonus = 0;
-	for(int i = 0; i < pGameVariables->gameConfigs.maxBonus; i++)
+	for (int i = 0; i < pGameVariables->gameConfigs.maxBonus; i++)
 	{
-		pGameData->bonus[i].isActive = FALSE;
+		pGameData->bonus[i].status = BONUS_INACTIVE;
 	}
 }
 
@@ -217,13 +390,13 @@ void resetBall(Ball* ball)
 {
 	ball->velocityRatio = 1;
 	rand_s(&random);
-	ball->directionY = random % 2 == 1 
-						? 1
-						: -1;
+	ball->directionY = random % 2 == 1
+		? 1
+		: -1;
 	rand_s(&random);
-	ball->directionX = random % 2 == 1 
-						? 1 
-						: -1;
+	ball->directionX = random % 2 == 1
+		? 1
+		: -1;
 	ball->playerIndex = UNDEFINED_ID;
 	ball->position.x = GAME_BOARD_WIDTH / 2 + GAME_BORDER_LEFT;
 	ball->position.y = GAME_BOARD_HEIGHT / 2 + GAME_BORDER_TOP;
@@ -234,16 +407,16 @@ void initializeBricks(GameVariables* pGameVariables)
 {
 	GameData* pGameData = pGameVariables->pGameData;
 	int index;
-	int maxResistance = pGameData->level > BRICKS_MAX_RESISTANCE 
-						? BRICKS_MAX_RESISTANCE 
-						: pGameData->level;
+	int maxResistance = pGameData->level > BRICKS_MAX_RESISTANCE
+		? BRICKS_MAX_RESISTANCE
+		: pGameData->level;
 	int probability;
 
-	for(int i = 0; i < MAX_BRICK_LINES; i++)
+	for (int i = 0; i < MAX_BRICK_LINES; i++)
 	{
 		for (int j = 0; j < MAX_BRICKS_IN_LINE; j++)
 		{
-			if(pGameData->numBricks == pGameVariables->gameConfigs.numBricks)
+			if (pGameData->numBricks == pGameVariables->gameConfigs.numBricks)
 			{
 				break;
 			}
@@ -279,9 +452,9 @@ void sendGameUpdate(GameVariables gameVariables)
 	}
 	ResetEvent(gameVariables.hGameUpdateEvent);
 
-	for(int i=0; i < gameVariables.gameConfigs.maxPlayers; i++)
+	for (int i = 0; i < gameVariables.gameConfigs.maxPlayers; i++)
 	{
-		if(gameVariables.namedPipesData[i].userID != UNDEFINED_ID)
+		if (gameVariables.namedPipesData[i].userID != UNDEFINED_ID)
 		{
 			sendGameNamedPipe(*gameVariables.pGameData, &gameVariables.namedPipesData[i]);
 		}
@@ -292,9 +465,9 @@ void ballMovement(GameVariables* pGameVariables)
 {
 	GameData* pGameData = pGameVariables->pGameData;
 
-	for(int i=0, j=0; j < pGameData->numBalls; i++)
+	for (int i = 0, j = 0; j < pGameData->numBalls; i++)
 	{
-		if(pGameData->ball[i].inPlay == TRUE)
+		if (pGameData->ball[i].inPlay == TRUE)
 		{
 			//Advance ball according to speed
 			int velocity = pGameVariables->gameConfigs.movementSpeed * pGameData->ball[i].velocityRatio;
@@ -318,18 +491,20 @@ void detectBallCollision(GameVariables* pGameVariables, int index)
 	{
 		//Right border hit -> Move left instead
 		ball->directionX = DIRECTION_X_LEFT;
-	} else if (ball->position.x <= GAME_BORDER_LEFT)
+	}
+	else if (ball->position.x <= GAME_BORDER_LEFT)
 	{
 		//Left border hit -> Move right instead
 		ball->directionX = DIRECTION_X_RIGHT;
-	} 
-	
+	}
+
 	//Game Border Top or Bottom Collisions
 	if (ball->position.y <= GAME_BORDER_TOP)
 	{
 		//Top border hit -> Move down instead
 		ball->directionY = DIRECTION_Y_DOWN;
-	} else if (ball->position.y + GAME_BALL_HEIGHT >= DIM_Y_FRAME)
+	}
+	else if (ball->position.y + GAME_BALL_HEIGHT >= DIM_Y_FRAME)
 	{
 		//Bottom border hit -> Move up instead
 		//Resets the ball
@@ -340,7 +515,8 @@ void detectBallCollision(GameVariables* pGameVariables, int index)
 		{
 			pGameData->lives--;
 			ball->inPlay = TRUE;
-		} else
+		}
+		else
 		{
 			pGameData->numBalls--;
 		}
@@ -353,16 +529,17 @@ void detectBallCollision(GameVariables* pGameVariables, int index)
 	//Brick collisions
 	//Check if ball is going up or down
 	int y = ball->position.y, x = ball->position.x;
-	if(ball->directionY == DIRECTION_Y_UP)
+	if (ball->directionY == DIRECTION_Y_UP)
 	{
-		if(ball->directionX == DIRECTION_X_RIGHT)
+		if (ball->directionX == DIRECTION_X_RIGHT)
 		{
 			//Ball is going up and right
 			y += GAME_BALL_HITBOX;
 			x += GAME_BALL_WIDTH - GAME_BALL_HITBOX;
 			direction = DIRECTION_LEFT_TO_RIGHT;
 			ballAndBrickCollision(pGameVariables, index, x, y, direction);
-		} else if(ball->directionX == DIRECTION_X_LEFT)
+		}
+		else if (ball->directionX == DIRECTION_X_LEFT)
 		{
 			//Ball is going up and left
 			y += GAME_BALL_HITBOX;
@@ -370,8 +547,9 @@ void detectBallCollision(GameVariables* pGameVariables, int index)
 			direction = DIRECTION_RIGHT_TO_LEFT;
 			ballAndBrickCollision(pGameVariables, index, x, y, direction);
 		}
-	} else if(ball->directionY == DIRECTION_Y_DOWN)
-	{	
+	}
+	else if (ball->directionY == DIRECTION_Y_DOWN)
+	{
 		if (ball->directionX == DIRECTION_X_RIGHT)
 		{
 			//Ball is going down and right
@@ -379,7 +557,8 @@ void detectBallCollision(GameVariables* pGameVariables, int index)
 			y += GAME_BALL_HEIGHT - GAME_BALL_HITBOX;
 			direction = DIRECTION_LEFT_TO_RIGHT;
 			ballAndBrickCollision(pGameVariables, index, x, y, DIRECTION_LEFT_TO_RIGHT);
-		} else if (ball->directionX == DIRECTION_X_LEFT)
+		}
+		else if (ball->directionX == DIRECTION_X_LEFT)
 		{
 			//Ball is going down and left
 			y += GAME_BALL_HEIGHT - GAME_BALL_HITBOX;
@@ -388,7 +567,7 @@ void detectBallCollision(GameVariables* pGameVariables, int index)
 		}
 	}
 
-	if(y >= GAME_BARRIER_Y)
+	if (y >= GAME_BARRIER_Y)
 	{
 		ballAndBarrierCollision(pGameVariables, index, x, y, direction);
 	}
@@ -429,7 +608,7 @@ void ballAndBrickCollision(GameVariables* pGameVariables, int index, int x, int 
 			if (x <= brick->position.x + GAME_BRICK_HITBOX)
 			{
 				//Switch direction if the hit was going from left to the right
-				if(directionX == DIRECTION_LEFT_TO_RIGHT)
+				if (directionX == DIRECTION_LEFT_TO_RIGHT)
 				{
 					ball->directionX = DIRECTION_X_LEFT;
 				}
@@ -439,7 +618,7 @@ void ballAndBrickCollision(GameVariables* pGameVariables, int index, int x, int 
 			if (x >= brick->position.x + BRICKS_WIDTH / 2 + GAME_BRICK_HITBOX)
 			{
 				//Switch direction if the hit was from the right too
-				if(directionX == DIRECTION_RIGHT_TO_LEFT)
+				if (directionX == DIRECTION_RIGHT_TO_LEFT)
 				{
 					ball->directionX = DIRECTION_X_RIGHT;
 				}
@@ -448,7 +627,7 @@ void ballAndBrickCollision(GameVariables* pGameVariables, int index, int x, int 
 			brick->resistance--;
 
 			//If a valid player hit the ball increase scoreboard
-			if(ball->playerIndex != UNDEFINED_ID)
+			if (ball->playerIndex != UNDEFINED_ID)
 			{
 				pGameData->player[ball->playerIndex].score += 1;
 			}
@@ -466,44 +645,46 @@ void ballAndBrickCollision(GameVariables* pGameVariables, int index, int x, int 
 					int bonuxIndex;
 					for (int i = 0; i < pGameVariables->gameConfigs.maxBonus; i++)
 					{
-						if (pGameData->bonus[i].isActive == FALSE)
+						if (pGameData->bonus[i].status == BONUS_INACTIVE)
 						{
 							bonuxIndex = i;
-							pGameData->bonus[i].isActive = TRUE;
+							//TODO: Add mutex to protect num bonus change value
+							pGameData->bonus[i].status = BONUS_IN_PLAY;
 							pGameData->bonus[i].position.x = brick->position.x;
 							pGameData->bonus[i].position.y = brick->position.y;
 							pGameData->bonus[i].type = brick->bonusType;
 							pGameData->numBonus++;
 							return;
-						}	
+						}
 					}
 				}
 			}
 		}
-	} 
+	}
 }
 
-void ballAndBarrierCollision(GameVariables* pGameVariables, int index,int x, int y, int directionX)
+void ballAndBarrierCollision(GameVariables* pGameVariables, int index, int x, int y, int directionX)
 {
 	GameData* pGameData = pGameVariables->pGameData;
 
-	for(int i = 0; i < pGameData->numPlayers; i++)
+	for (int i = 0; i < pGameData->numPlayers; i++)
 	{
 		//Checks if ball hit a barrier
 		int barrierDimension = pGameData->barrierDimensions * pGameData->barrier[i].sizeRatio;
-		if(x >= pGameData->barrier[i].position.x && x <= pGameData->barrier[i].position.x + barrierDimension)
+		if (x >= pGameData->barrier[i].position.x && x <= pGameData->barrier[i].position.x + barrierDimension)
 		{
 			int hitbox = pGameData->barrierDimensions / 8;
 			//Check which side of the barrier was hit
 			WaitForSingleObject(pGameVariables->hGameLogicMutex, INFINITE);
-			if(x <= pGameData->barrier[i].position.x + hitbox)
+			if (x <= pGameData->barrier[i].position.x + hitbox)
 			{
 				//Left side was hit
 				if (directionX == DIRECTION_LEFT_TO_RIGHT)
 				{
 					pGameData->ball[index].directionX = DIRECTION_X_LEFT;
 				}
-			}else if(x >= pGameData->barrier[i].position.x + pGameData->barrierDimensions - hitbox)
+			}
+			else if (x >= pGameData->barrier[i].position.x + pGameData->barrierDimensions - hitbox)
 			{
 				//Right side was hit
 				if (directionX == DIRECTION_RIGHT_TO_LEFT)
@@ -524,10 +705,10 @@ void assignUsersToGame(GameData* pGameData, Player* users, int currentUsers)
 	pGameData->numPlayers = currentUsers;
 
 	int maxDimension = BARRIER_AREA / pGameData->numPlayers;
-	pGameData->barrierDimensions =  maxDimension - maxDimension * BARRIER_MARGIN_PERCENTAGE;
+	pGameData->barrierDimensions = maxDimension - maxDimension * BARRIER_MARGIN_PERCENTAGE;
 	int barrierStartPosition = GAME_BORDER_LEFT + ((maxDimension + BARRIER_REMAINDER) / 2) - pGameData->barrierDimensions / 2;
 
-	for(int i = 0; i < currentUsers; i++)
+	for (int i = 0; i < currentUsers; i++)
 	{
 		//Setup Player
 		_tcscpy_s(pGameData->player[i].username, TAM, users[i].username);
@@ -546,9 +727,9 @@ void assignUsersToGame(GameData* pGameData, Player* users, int currentUsers)
 
 int getPlayerToTheRight(GameData gameData, int userPosition)
 {
-	for(int i = userPosition; i < gameData.numPlayers - 1; i++)
+	for (int i = userPosition; i < gameData.numPlayers - 1; i++)
 	{
-		if(gameData.player[i + 1].inGame == TRUE)
+		if (gameData.player[i + 1].inGame == TRUE)
 		{
 			return i + 1;
 		}
