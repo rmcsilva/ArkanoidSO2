@@ -130,7 +130,13 @@ int setupInitialGameConfigs(TCHAR* filename[_MAX_FNAME], GameConfigs* gameConfig
 				gameConfigs->levels = value;
 				break;
 			case 2:
-				gameConfigs->maxBonus = value;
+				if(value > MAX_BONUS)
+				{
+					gameConfigs->maxBonus = MAX_BONUS;
+				} else
+				{
+					gameConfigs->maxBonus = value;
+				}
 				break;
 			case 3:
 				gameConfigs->bonusDuration = value;

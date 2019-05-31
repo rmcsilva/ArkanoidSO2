@@ -174,6 +174,11 @@ HBITMAP hBricksBitmap[TOTAL_BRICK_TYPES];
 HICON hBallIcon;
 HICON hLivesIcon;
 RECT scoreBox;
+//Bonus icons
+HICON hSlowIcon;
+HICON hFastIcon;
+HICON hExtraIcon;
+HICON hTripleIcon;
 
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
@@ -247,7 +252,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		hScoreFont = CreateFont(GAME_SCORE_FONT_SIZE, 0, 0, 0, FW_DONTCARE, FALSE, TRUE, FALSE, DEFAULT_CHARSET, OUT_OUTLINE_PRECIS,
 			CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, VARIABLE_PITCH, TEXT("Impact"));
-		//TODO: Load the rest of the objects
+
+		hSlowIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_SLOW), IMAGE_ICON, 0, 0, LR_LOADTRANSPARENT);
+		hFastIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_FAST), IMAGE_ICON, 0, 0, LR_LOADTRANSPARENT);
+		hExtraIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_EXTRA), IMAGE_ICON, 0, 0, LR_LOADTRANSPARENT);
+		hTripleIcon = (HICON)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_TRIPLE), IMAGE_ICON, 0, 0, LR_LOADTRANSPARENT);
 
 		//Game movement keys
 		setupMovementKeys(&hRegistryKey, &rightMovementKey, &leftMovementKey);
@@ -461,11 +470,41 @@ void drawGame(GameData gameData)
 		}
 	}
 
+	//Draw bonus
+	for (int i = 0, j = 0; j < gameData.numBonus; i++)
+	{
+		if (gameData.bonus[i].isActive == TRUE)
+		{
+			HICON hBonus = NULL;
+			switch (gameData.bonus[i].type)
+			{
+				case BONUS_SPEED_UP:
+					hBonus = hFastIcon;
+					break;
+				case BONUS_SLOW_DOWN:
+					hBonus = hSlowIcon;
+					break;
+				case BONUS_EXTRA_LIFE:
+					hBonus = hExtraIcon;
+					break;
+				case BONUS_TRIPLE_BALL:
+					hBonus = hTripleIcon;
+					break;
+			}
+			DrawIcon(hMemDC, gameData.bonus[i].position.x, gameData.bonus[i].position.y, hBonus);
+			j++;
+		}
+	}
+
 	SelectObject(hTempDC, hBallIcon);
 	//Draw balls
-	for (int i = 0; i < gameData.numBalls; i++)
+	for (int i = 0, j = 0; j < gameData.numBalls; i++)
 	{
-		DrawIcon(hMemDC, gameData.ball[i].position.x, gameData.ball[i].position.y, hBallIcon);
+		if (gameData.ball[i].inPlay == TRUE)
+		{
+			DrawIcon(hMemDC, gameData.ball[i].position.x, gameData.ball[i].position.y, hBallIcon);
+			j++;
+		}
 	}
 
 	//Draw Barrier

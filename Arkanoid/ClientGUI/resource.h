@@ -22,6 +22,11 @@
 #define IDI_BALL                        149
 #define IDI_ICON3                       150
 #define IDI_LIVES                       150
+#define IDI_SLOW                        152
+#define IDI_FAST                        153
+#define IDI_EXTRA                       154
+#define IDI_ICON4                       155
+#define IDI_TRIPLE                      155
 #define IDC_USERNAME                    1004
 #define IDC_CHECK1                      1005
 #define IDC_REMOTE                      1005
@@ -41,7 +46,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        151
+#define _APS_NEXT_RESOURCE_VALUE        156
 #define _APS_NEXT_COMMAND_VALUE         32775
 #define _APS_NEXT_CONTROL_VALUE         1011
 #define _APS_NEXT_SYMED_VALUE           110

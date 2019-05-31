@@ -173,7 +173,11 @@
   <ItemGroup>
     <Image Include="ArkanoidGameLayout.BMP" />
     <Image Include="Assets\Ball.ico" />
+    <Image Include="Assets\Extra.ico" />
+    <Image Include="Assets\Fast.ico" />
     <Image Include="Assets\Lives.ico" />
+    <Image Include="Assets\Slow.ico" />
+    <Image Include="Assets\Triple.ico" />
     <Image Include="ClientGUI.ico" />
     <Image Include="logo.ico" />
     <Image Include="small.ico" />

@@ -37,6 +37,7 @@ typedef struct Brick {
 typedef struct Bonus {
 	Position position;
 	int type;
+	BOOL isActive;
 }Bonus;
 
 typedef struct Player {

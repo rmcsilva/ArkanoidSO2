@@ -39,6 +39,8 @@ typedef struct GameVariables {
 }GameVariables;
 
 DWORD WINAPI GameLogic(LPVOID lpParam);
+DWORD WINAPI BallLogic(LPVOID lpParam);
+DWORD WINAPI BonusLogic(LPVOID lpParam);
 void initializeGame(GameVariables* pGameVariables);
 void resetBall(Ball* ball);
 void initializeBricks(GameVariables* pGameVariables);

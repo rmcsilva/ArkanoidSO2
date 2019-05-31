@@ -7,7 +7,7 @@
 #define MAX_BRICKS (MAX_BRICKS_IN_LINE * MAX_BRICK_LINES)
 #define BRICKS_MARGIN 2
 #define BRICKS_MAX_RESISTANCE 4
-#define MAX_BONUS 5
+#define MAX_BONUS 15
 #define MAX_BALLS 3
 
 //Game dimensions
@@ -41,8 +41,12 @@
 #define BRICKS_HEIGHT 24
 #define GAME_BRICKS_BOTTOM (BRICKS_HEIGHT * MAX_BRICK_LINES + GAME_BORDER_TOP)
 
+#define GAME_BONUS_WIDTH 72
+#define GAME_BONUS_HEIGHT 24
+
 //Bonus types
-#define TOTAL_BONUS 6
+//TODO: Change to match the number of implemented bonus
+#define TOTAL_BONUS 4
 #define BONUS_SPEED_UP 0
 #define BONUS_SLOW_DOWN 1
 #define BONUS_EXTRA_LIFE 2

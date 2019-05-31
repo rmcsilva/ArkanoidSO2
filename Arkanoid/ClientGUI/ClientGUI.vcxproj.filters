@@ -69,5 +69,17 @@
     <Image Include="Assets\Lives.ico">
       <Filter>Resource Files</Filter>
     </Image>
+    <Image Include="Assets\Slow.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Fast.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Extra.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Triple.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>
