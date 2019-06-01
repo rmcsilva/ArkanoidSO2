@@ -51,6 +51,7 @@ INT_PTR CALLBACK	settingsEventsDialog(HWND hDlg, UINT message, WPARAM wParam, LP
 DWORD WINAPI		GameUpdate(LPVOID lpParam);
 void				drawGame(GameData gameData);
 void				drawGameBackground();
+void				showTop10();
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -289,7 +290,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				DialogBox(hInst, MAKEINTRESOURCE(IDD_SETTINGS), hWnd, settingsEventsDialog);
                 break;
 			case IDM_REQUESTTOP10:
-				//TODO: Complete
+				sendMessage(TOP10);
+				receiveMessage(TOP10);
+				showTop10();
 				break;
 			case IDM_MUSIC:
 				if (isMusicPlaying == TRUE)
@@ -442,7 +445,7 @@ DWORD WINAPI GameUpdate(LPVOID lpParam)
 		//Receives the top10
 		sendMessage(TOP10);
 		receiveMessage(TOP10);
-		//TODO: Show the top10
+		showTop10();
 	}
 
 	return 1;
@@ -561,6 +564,39 @@ void drawGameBackground()
 	BitBlt(hMemDC, 0, 0, DIM_X_FRAME, DIM_Y_FRAME, hTempDC, 0, 0, SRCCOPY);
 
 	DeleteObject(hTempDC);
+}
+
+void showTop10()
+{
+	TCHAR* nextToken = NULL;
+	TCHAR value[TOP10_SIZE];
+	_tcscpy_s(value, TOP10_SIZE, top10);
+	TCHAR* token = _tcstok_s(value, TEXT(";"), &nextToken);
+	int counter = 1;
+	TCHAR top10Message[TOP10_SIZE] = TEXT("");
+	TCHAR temp[MAX] = TEXT("");
+
+	while (token != NULL)
+	{
+
+		_stprintf_s(temp, MAX, TEXT("Top %d "), counter);
+		_tcscat_s(top10Message, TOP10_SIZE, temp);
+
+		//Copy username
+		_stprintf_s(temp, MAX, TEXT("Username: %s "), token);
+		_tcscat_s(top10Message, TOP10_SIZE, temp);
+
+		//Get score
+		token = _tcstok_s(NULL, TEXT(";"), &nextToken);
+		_stprintf_s(temp, MAX, TEXT("Score: %s\n\n"), token);
+		_tcscat_s(top10Message, TOP10_SIZE, temp);
+
+		token = _tcstok_s(NULL, TEXT(";"), &nextToken);
+
+		counter++;
+	}
+
+	MessageBox(NULL, top10Message, TEXT("Top 10"), MB_OK);
 }
 
 // Message handler for about box.
