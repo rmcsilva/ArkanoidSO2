@@ -18,3 +18,5 @@
 #define BRICK_RESISTANCE3_PATH	TEXT("./Assets/BrickResistance3.BMP")
 #define BRICK_RESISTANCE4_PATH	TEXT("./Assets/BrickResistance4.BMP")
 #define BRICK_BONUS_PATH		TEXT("./Assets/BrickBonus.BMP")
+
+#define GAME_MUSIC_PATH TEXT("./Assets/GameMusic.wav")

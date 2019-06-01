@@ -3,7 +3,6 @@
 
 #include "stdafx.h"
 #include "ClientGUI.h"
-#include <windows.h>
 #include <tchar.h>
 #include <windowsx.h>
 #include <winuser.h>
@@ -13,6 +12,9 @@
 #include "util.h"
 #include "constants.h"
 #include "setup.h"
+#include <Mmsystem.h>
+#include <windows.h>
+
 
 #define MAX_LOADSTRING 100
 
@@ -36,6 +38,8 @@ TCHAR rightMovementKey;
 TCHAR leftMovementKey;
 
 HFONT hScoreFont;
+
+BOOL isMusicPlaying = TRUE;
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -270,6 +274,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			0,						// use default creation flags 
 			&dwGameThreadId);		// returns the thread identifier
 
+		PlaySound(GAME_MUSIC_PATH, NULL, SND_FILENAME | SND_LOOP | SND_ASYNC);
 		break;
     case WM_COMMAND:
         {
@@ -285,6 +290,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
 			case IDM_REQUESTTOP10:
 				//TODO: Complete
+				break;
+			case IDM_MUSIC:
+				if (isMusicPlaying == TRUE)
+				{
+					isMusicPlaying = FALSE;
+					PlaySound(NULL, 0, 0);
+				} else
+				{
+					isMusicPlaying = TRUE;
+					PlaySound(GAME_MUSIC_PATH, NULL, SND_FILENAME | SND_LOOP | SND_ASYNC);
+				}
 				break;
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);

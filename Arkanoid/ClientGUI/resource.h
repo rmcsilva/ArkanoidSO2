@@ -39,6 +39,9 @@
 #define ID_SETTINGS                     32772
 #define IDM_REQUESTTOP10                32773
 #define IDM_SETTINGS                    32774
+#define ID_PLAY                         32775
+#define ID_MUSIC                        32776
+#define IDM_MUSIC                       32777
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -47,7 +50,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        156
-#define _APS_NEXT_COMMAND_VALUE         32775
+#define _APS_NEXT_COMMAND_VALUE         32778
 #define _APS_NEXT_CONTROL_VALUE         1011
 #define _APS_NEXT_SYMED_VALUE           110
 #endif

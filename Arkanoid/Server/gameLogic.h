@@ -23,7 +23,7 @@
 #define SPEED_UP_INCREASE 0.2
 #define SLOW_DOWN_DECREASE 0.2
 
-#define SPEED_UP_ACTIVATE_VALUE 2
+#define SPEED_UP_ACTIVATE_VALUE 2.0
 #define SLOW_DOWN_ACTIVATE_VALUE 0.6
 
 typedef struct GameConfigs {
@@ -56,6 +56,8 @@ DWORD WINAPI BonusDuration(LPVOID lpParam);
 VOID CALLBACK BonusEffectAPCProc(LPVOID lpArg, DWORD dwTimerLowValue, DWORD dwTimerHighValue);
 BOOL ballBonusIncrease(GameData* pGameData);
 BOOL ballBonusDecrease(GameData* pGameData);
+void tripleBallBonus(GameData* pGameData);
+void randomizeBallPosition(Ball* ball);
 void initializeGame(GameVariables* pGameVariables);
 void resetBall(Ball* ball);
 void initializeBricks(GameVariables* pGameVariables);
