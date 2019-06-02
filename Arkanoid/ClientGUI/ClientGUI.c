@@ -406,8 +406,15 @@ DWORD WINAPI GameUpdate(LPVOID lpParam)
 	{
 		while (shutdown == FALSE)
 		{
-			gameData = receiveBroadcast();
-			status = gameData.gameStatus;
+			__try
+			{
+				gameData = receiveBroadcast();
+				status = gameData.gameStatus;
+			}
+			__except (filter(GetExceptionCode()))
+			{
+				return -1;
+			}
 
 			if (status == GAME_OVER)
 			{
@@ -528,11 +535,14 @@ void drawGame(GameData gameData)
 	RECT barrier;
 	for(int i = 0; i < gameData.numPlayers; i++)
 	{
-		barrier.left = gameData.barrier[i].position.x;
-		barrier.top = gameData.barrier[i].position.y;
-		barrier.right = gameData.barrier[i].position.x + gameData.barrierDimensions * gameData.barrier[i].sizeRatio;
-		barrier.bottom = DIM_Y_FRAME;
-		FillRect(hMemDC, &barrier, (HBRUSH)(COLOR_WINDOW + i));
+		if (gameData.player[i].inGame == TRUE)
+		{
+			barrier.left = gameData.barrier[i].position.x;
+			barrier.top = gameData.barrier[i].position.y;
+			barrier.right = gameData.barrier[i].position.x + gameData.barrierDimensions * gameData.barrier[i].sizeRatio;
+			barrier.bottom = DIM_Y_FRAME;
+			FillRect(hMemDC, &barrier, (HBRUSH)(COLOR_WINDOW + i));
+		}
 	}
 
 	//Draw Lives
@@ -578,7 +588,6 @@ void showTop10()
 
 	while (token != NULL)
 	{
-
 		_stprintf_s(temp, MAX, TEXT("Top %d "), counter);
 		_tcscat_s(top10Message, TOP10_SIZE, temp);
 

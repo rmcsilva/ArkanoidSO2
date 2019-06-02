@@ -274,6 +274,25 @@ void convertStringToTopPlayers(TopPlayer* topPlayers, TCHAR* top10Value, DWORD* 
 	*playerCount = counter;
 }
 
+void convertTopPlayersToString(TopPlayer* topPlayers, TCHAR* top10Value, DWORD* playerCount)
+{
+	TCHAR temp[TOP10_SIZE] = TEXT("");
+	TCHAR newTop10[TOP10_SIZE] = TEXT("");
+
+	for (int i = 0; i < *playerCount; ++i)
+	{
+		//Copy username
+		_stprintf_s(temp, MAX, TEXT("%s;"), topPlayers[i].username);
+		_tcscat_s(newTop10, TOP10_SIZE, temp);
+
+		//Get score
+		_stprintf_s(temp, MAX, TEXT("%d;"), topPlayers[i].topScore);
+		_tcscat_s(newTop10, TOP10_SIZE, temp);
+	}
+	//Copy temporary string to actual value
+	_tcscpy_s(top10Value, TOP10_SIZE, newTop10);
+}
+
 void createGameUpdateEvent(HANDLE* hGameUpdateEvent)
 {
 	*hGameUpdateEvent = CreateEvent(

@@ -56,3 +56,15 @@ int saveMovementKeys(HANDLE* hRegistryKey, TCHAR* rightMovementKey, TCHAR* leftM
 	//Save left movement key
 	RegSetValueEx(*hRegistryKey, LEFT_MOVEMENT_KEY_VALUE, 0, REG_SZ, (LPBYTE)leftMovementKey, _tcslen(LEFT_MOVEMENT_DEFAULT_KEY) * sizeof(TCHAR));
 }
+
+int filter(unsigned int code)
+{
+	if (code == EXCEPTION_ACCESS_VIOLATION)
+	{
+		return EXCEPTION_EXECUTE_HANDLER;
+	}
+	else
+	{
+		return EXCEPTION_CONTINUE_SEARCH;
+	};
+}

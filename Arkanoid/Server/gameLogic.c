@@ -9,6 +9,7 @@
 #include "gameStructs.h"
 #include "messages.h"
 #include <stdlib.h>
+#include "setup.h"
 
 TCHAR debugText[MAX];
 unsigned int random;
@@ -89,6 +90,8 @@ DWORD WINAPI GameLogic(LPVOID lpParam)
 			return -1;
 		}
 	}
+	//Game is over
+	gameOver(pGameData);
 
 	saveGameScoresAndOrderTop10(pGameVariables);
 
@@ -730,32 +733,35 @@ void ballAndBarrierCollision(GameVariables* pGameVariables, int index, int x, in
 
 	for (int i = 0; i < pGameData->numPlayers; i++)
 	{
-		//Checks if ball hit a barrier
-		int barrierDimension = pGameData->barrierDimensions * pGameData->barrier[i].sizeRatio;
-		if (x >= pGameData->barrier[i].position.x && x <= pGameData->barrier[i].position.x + barrierDimension)
+		if (pGameData->player[i].inGame == TRUE)
 		{
-			int hitbox = pGameData->barrierDimensions / 8;
-			//Check which side of the barrier was hit
-			WaitForSingleObject(pGameVariables->hGameLogicMutex, INFINITE);
-			if (x <= pGameData->barrier[i].position.x + hitbox)
-			{
-				//Left side was hit
-				if (directionX == DIRECTION_LEFT_TO_RIGHT)
+			//Checks if ball hit a barrier
+			int barrierDimension = pGameData->barrierDimensions * pGameData->barrier[i].sizeRatio;
+			if (x >= pGameData->barrier[i].position.x && x <= pGameData->barrier[i].position.x + barrierDimension) {
+				int hitbox = pGameData->barrierDimensions / 8;
+				//Check which side of the barrier was hit
+				WaitForSingleObject(pGameVariables->hGameLogicMutex, INFINITE);
+				if (x <= pGameData->barrier[i].position.x + hitbox)
 				{
-					pGameData->ball[index].directionX = DIRECTION_X_LEFT;
+					//Left side was hit
+					if (directionX == DIRECTION_LEFT_TO_RIGHT)
+					{
+						pGameData->ball[index].directionX = DIRECTION_X_LEFT;
+					}
 				}
-			} else if (x >= pGameData->barrier[i].position.x + pGameData->barrierDimensions - hitbox)
-			{
-				//Right side was hit
-				if (directionX == DIRECTION_RIGHT_TO_LEFT)
+				else if (x >= pGameData->barrier[i].position.x + pGameData->barrierDimensions - hitbox)
 				{
-					pGameData->ball[index].directionX = DIRECTION_X_RIGHT;
+					//Right side was hit
+					if (directionX == DIRECTION_RIGHT_TO_LEFT)
+					{
+						pGameData->ball[index].directionX = DIRECTION_X_RIGHT;
+					}
 				}
+				ReleaseMutex(pGameVariables->hGameLogicMutex);
+				pGameData->ball[index].directionY = DIRECTION_Y_UP;
+				pGameData->ball[index].playerIndex = i;
+				return;
 			}
-			ReleaseMutex(pGameVariables->hGameLogicMutex);
-			pGameData->ball[index].directionY = DIRECTION_Y_UP;
-			pGameData->ball[index].playerIndex = i;
-			return;
 		}
 	}
 }
@@ -785,6 +791,15 @@ void assignUsersToGame(GameData* pGameData, Player* users, int currentUsers)
 	}
 }
 
+void gameOver(GameData* pGameData)
+{
+	//Update user status from game
+	for (int i = 0; i < pGameData->numPlayers; ++i)
+	{
+		pGameData->player[i].inGame = FALSE;
+	}
+}
+
 int getPlayerToTheRight(GameData gameData, int userPosition)
 {
 	for (int i = userPosition; i < gameData.numPlayers - 1; i++)
@@ -807,4 +822,47 @@ int getPlayerToTheLeft(GameData gameData, int userPosition)
 		}
 	}
 	return -1;
+}
+
+void saveGameScoresAndOrderTop10(GameVariables* pGameVariables)
+{
+	GameData* pGameData = pGameVariables->pGameData;
+	TopPlayer* pTopPlayers = pGameVariables->topPlayers;
+	DWORD* top10PlayerCount = pGameVariables->top10PlayerCount;
+	TopPlayer topPlayerTemp;
+	int counter = 0;
+
+	for (int i = 0; i < MAX_TOP_PLAYERS; i++)
+	{
+		for (int j = 0; j < pGameData->numPlayers; j++)
+		{
+			if (pTopPlayers[i].topScore < pGameData->player[j].score)
+			{
+				//Copy value to temporary
+				topPlayerTemp.topScore = pTopPlayers[i].topScore;
+				_tcscpy_s(topPlayerTemp.username, TAM, pTopPlayers[i].username);
+				//Replace top10 value with player value
+				pTopPlayers[i].topScore = pGameData->player[j].score;
+				_tcscpy_s(pTopPlayers[i].username, TAM, pGameData->player[j].username);
+				//Replace player value with top player and continue ordering
+				pGameData->player[j].score = topPlayerTemp.topScore;
+				_tcscpy_s(pGameData->player[j].username, TAM, topPlayerTemp.username);
+			}
+		}
+
+		if (pTopPlayers[i].topScore != 0)
+		{
+			counter++;
+		}
+	}
+
+	 *top10PlayerCount = counter;
+
+	convertTopPlayersToString(pTopPlayers, pGameVariables->top10Value, top10PlayerCount);
+
+	//Create value "TOP10" = "top10Value"
+	RegSetValueEx(pGameVariables->hResgistryTop10Key, TOP10_REGISTRY_VALUE, 0, REG_SZ, (LPBYTE)pGameVariables->top10Value, _tcslen(pGameVariables->top10Value) * sizeof(TCHAR));
+
+	//Create value "TOP10PlayerCount" = top10PlayerCount
+	RegSetValueEx(pGameVariables->hResgistryTop10Key, TOP10_PLAYER_COUNT, 0, REG_DWORD, (LPBYTE)*top10PlayerCount, sizeof(DWORD));
 }

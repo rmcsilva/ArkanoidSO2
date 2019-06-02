@@ -244,6 +244,10 @@ int _tmain(int argc, TCHAR* argv[])
 						gameVariables.hGameUpdateEvent = hGameUpdateEvent;
 						gameVariables.hGameLogicMutex = hGameLogicMutex;
 						gameVariables.pGameData = pGameDataMemory;
+						gameVariables.topPlayers = &topPlayers;
+						gameVariables.top10Value = top10Value;
+						gameVariables.top10PlayerCount = &top10PlayerCount;
+						gameVariables.hResgistryTop10Key = hResgistryTop10Key;
 
 						//Thread to handle the game logic
 						hGameThread = CreateThread(
@@ -700,13 +704,15 @@ int checkIfUserIsInGame(int playerId)
 		{
 			if(pGameDataMemory->player[i].inGame == FALSE)
 			{
-				_tprintf(TEXT("\nUser %s is not in game!\n\n"), pGameDataMemory->player[i].username);
+				_stprintf_s(debugText, MAX, TEXT("\nUser %s is not in game!\n\n"), pGameDataMemory->player[i].username);
+				OutputDebugString(debugText);
 				return -1;
 			}
 			return i;
 		}
 	}
-	_tprintf(TEXT("\nUser %d is not connected to the server!\n\n"), playerId);
+	_stprintf_s(debugText, MAX, TEXT("\nUser %d is not connected to the server!\n\n"), playerId);
+	OutputDebugString(debugText);
 	return -1;
 }
 
@@ -717,6 +723,16 @@ void userLogout(int userID)
 		if(users[i].id == userID)
 		{
 			_tprintf(TEXT("\n\nUser %s logged out\n\n"), users[i].username);
+			int index = checkIfUserIsInGame(userID);
+
+			if (index != -1)
+			{
+				//Removes user from the game
+				WaitForSingleObject(hGameLogicMutex, INFINITE);
+				pGameDataMemory->player[index].inGame = FALSE;
+				ReleaseMutex(hGameLogicMutex);
+			}
+
 			WaitForSingleObject(hServerLogicMutex, INFINITE);
 
 			currentUsers--;

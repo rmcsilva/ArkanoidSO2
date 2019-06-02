@@ -43,6 +43,11 @@ typedef struct GameVariables {
 	HANDLE hGameUpdateEvent;
 	HANDLE hGameLogicMutex;
 	PipeData* namedPipesData;
+	//Top10 Players Variables
+	TopPlayer* topPlayers; 
+	TCHAR* top10Value; 
+	DWORD* top10PlayerCount;
+	HANDLE hResgistryTop10Key;
 }GameVariables;
 
 typedef struct BonusTimerVariables {
@@ -67,5 +72,7 @@ void ballAndBrickCollision(GameVariables* pGameVariables, int index, int x, int 
 void ballAndBarrierCollision(GameVariables* pGameVariables, int index, int x, int y, int directionX);
 void sendGameUpdate(GameVariables gameVariables);
 void assignUsersToGame(GameData* pGameData, Player* users, int currentUsers);
+void gameOver(GameData* pGameData);
 int getPlayerToTheRight(GameData gameData, int userPosition);
 int getPlayerToTheLeft(GameData gameData, int userPosition);
+void saveGameScoresAndOrderTop10(GameVariables* pGameVariables);
