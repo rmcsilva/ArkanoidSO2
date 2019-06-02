@@ -20,11 +20,11 @@
 #define DIRECTION_LEFT_TO_RIGHT 1
 
 //Bonus values
-#define SPEED_UP_INCREASE 0.2
-#define SLOW_DOWN_DECREASE 0.2
+#define SPEED_UP_INCREASE 20
+#define SLOW_DOWN_DECREASE 20
 
-#define SPEED_UP_ACTIVATE_VALUE 2.0
-#define SLOW_DOWN_ACTIVATE_VALUE 0.6
+#define SPEED_UP_ACTIVATE_VALUE 200
+#define SLOW_DOWN_ACTIVATE_VALUE 60
 
 typedef struct GameConfigs {
 	int maxPlayers;

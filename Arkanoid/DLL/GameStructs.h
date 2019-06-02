@@ -21,7 +21,7 @@ typedef struct Position {
 typedef struct Ball {
 	int directionX;
 	int directionY;
-	double velocityRatio;
+	int velocityRatio;
 	Position position;
 	int playerIndex;
 	BOOL inPlay;

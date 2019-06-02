@@ -14,6 +14,7 @@ TCHAR debugText[MAX];
 unsigned int random;
 
 HANDLE hBallControlMutex;
+HANDLE hBonusMutex;
 
 HANDLE hBonusEvent;
 
@@ -89,6 +90,8 @@ DWORD WINAPI GameLogic(LPVOID lpParam)
 		}
 	}
 
+	saveGameScoresAndOrderTop10(pGameVariables);
+
 	pGameData->gameStatus = GAME_OVER;
 	sendGameUpdate(*pGameVariables);
 
@@ -98,6 +101,8 @@ DWORD WINAPI GameLogic(LPVOID lpParam)
 	}
 
 	WaitForSingleObject(hBonusThread, INFINITE);
+	
+	CloseHandle(hGameWait);
 
 	return 1;
 }
@@ -164,8 +169,10 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 						int barrierDimension = pGameData->barrierDimensions * pGameData->barrier[j].sizeRatio;
 						if (x >= pGameData->barrier[j].position.x && x <= pGameData->barrier[j].position.x + barrierDimension)
 						{
+							WaitForSingleObject(hBonusMutex, INFINITE);
 							switch (pGameData->bonus[i].type)
 							{
+								//TODO: Add more bonus types
 								case BONUS_SPEED_UP:
 									if (ballBonusIncrease(pGameData) == TRUE)
 									{
@@ -199,7 +206,7 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 									pGameData->numBonus--;
 									break;
 							}
-
+							ReleaseMutex(hBonusMutex);
 							OutputDebugString(TEXT("\nPlayer catched a bonus!!\n"));
 							break;
 						}
@@ -207,9 +214,11 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 				}
 				else if (yStart >= DIM_Y_FRAME)
 				{
+					WaitForSingleObject(hBonusMutex, INFINITE);
 					//Bonus is out of the screen
 					pGameData->bonus[i].status = BONUS_INACTIVE;
 					pGameData->numBonus--;
+					ReleaseMutex(hBonusMutex);
 				}
 			}
 		}
@@ -223,6 +232,8 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 	SetEvent(hBonusTimeoutEvent[0]);
 	WaitForSingleObject(hBonusDurationThread, INFINITE);
 
+	CloseHandle(hBonusWait);
+
 	return 1;
 }
 
@@ -231,12 +242,14 @@ DWORD WINAPI BonusDuration(LPVOID lpParam)
 	GameVariables* pGameVariables = (GameVariables*)lpParam;
 	GameData* pGameData = pGameVariables->pGameData;
 
+	BonusTimerVariables bonusTimerVariables[MAX_BONUS];
+
 	HANDLE hBonusEffectTimer[MAX_BONUS];
 	LARGE_INTEGER bonusEffectTime;
 
-	bonusEffectTime.QuadPart = _1SECOND * pGameVariables->gameConfigs.bonusDuration;
-
 	int maxBonus = pGameVariables->gameConfigs.maxBonus;
+
+	bonusEffectTime.QuadPart = _1SECOND * pGameVariables->gameConfigs.bonusDuration;
 
 	for (int i = 0; i < maxBonus; i++)
 	{
@@ -266,18 +279,23 @@ DWORD WINAPI BonusDuration(LPVOID lpParam)
 			continue;
 		}
 
-		BonusTimerVariables bonusTimerVariables;
-		bonusTimerVariables.pGameVariables = pGameVariables;
-		bonusTimerVariables.bonusIndex = i;
+		bonusTimerVariables[i].pGameVariables = pGameVariables;
+		bonusTimerVariables[i].bonusIndex = i;
 
 		SetWaitableTimer(
 			hBonusEffectTimer[i],	// Handle to the timer object
 			&bonusEffectTime,		// When timer will become signaled
 			0,						// Non-Periodic timer
 			BonusEffectAPCProc,		// Completion routine
-			&bonusTimerVariables,	// Argument to the completion routine
+			&bonusTimerVariables[i],	// Argument to the completion routine
 			FALSE);					// Do not restore a suspended system
 
+	}
+
+	for (int i = 0; i < maxBonus; i++)
+	{
+		CloseHandle(hBonusEffectTimer[i]);
+		CloseHandle(hBonusTimeoutEvent[i]);
 	}
 
 	return 1;
@@ -302,28 +320,20 @@ VOID CALLBACK BonusEffectAPCProc(
 	{
 		case BONUS_SPEED_UP:
 			//Reduce ball speed according to the value it was increased 
-			percentage = -SPEED_UP_INCREASE;
+			ballBonusDecrease(pGameData);
 			break;
 		case BONUS_SLOW_DOWN:
 			//Raise ball speed according to the value it was decreased 
-			percentage = SLOW_DOWN_DECREASE;
+			ballBonusIncrease(pGameData);
 			break;
 		default:
 			return;
 	}
 
-	WaitForSingleObject(hBallControlMutex, INFINITE);
-	for (int i = 0; i < MAX_BALLS; i++)
-	{
-		if (pGameData->ball[i].inPlay == TRUE)
-		{
-			pGameData->ball[i].velocityRatio += percentage;
-		}
-	}
-	ReleaseMutex(hBallControlMutex);
-
+	WaitForSingleObject(hBonusMutex, INFINITE);
 	pGameData->bonus[pBonusTimerVariables->bonusIndex].status = BONUS_INACTIVE;
 	pGameData->numBonus--;
+	ReleaseMutex(hBonusMutex);
 
 	OutputDebugString(TEXT("\nBonus timed out:\n\n"));
 	MessageBeep(0);
@@ -424,6 +434,11 @@ void initializeGame(GameVariables* pGameVariables)
 		FALSE,             // initially not owned
 		NULL);             // unnamed mutex
 
+	hBonusMutex = CreateMutex(
+		NULL,              // default security attributes
+		FALSE,             // initially not owned
+		NULL);             // unnamed mutex
+
 	pGameData->numBonus = 0;
 	for (int i = 0; i < pGameVariables->gameConfigs.maxBonus; i++)
 	{
@@ -433,7 +448,7 @@ void initializeGame(GameVariables* pGameVariables)
 
 void resetBall(Ball* ball)
 {
-	ball->velocityRatio = 1.0;
+	ball->velocityRatio = 100;
 	rand_s(&random);
 	ball->directionY = random % 2 == 1
 		? 1
@@ -509,12 +524,13 @@ void sendGameUpdate(GameVariables gameVariables)
 void ballMovement(GameVariables* pGameVariables)
 {
 	GameData* pGameData = pGameVariables->pGameData;
+	WaitForSingleObject(hBallControlMutex, INFINITE);
 	for (int i = 0, j = 0; j < pGameData->numBalls; i++)
 	{
 		if (pGameData->ball[i].inPlay == TRUE)
 		{
 			//Advance ball according to speed
-			int velocity = pGameVariables->gameConfigs.movementSpeed * pGameData->ball[i].velocityRatio;
+			int velocity = pGameVariables->gameConfigs.movementSpeed * pGameData->ball[i].velocityRatio / 100;
 			pGameData->ball[i].position.x += velocity * pGameData->ball[i].directionX;
 			pGameData->ball[i].position.y += velocity * pGameData->ball[i].directionY;
 			detectBallCollision(pGameVariables, i);
@@ -523,6 +539,7 @@ void ballMovement(GameVariables* pGameVariables)
 			j++;
 		}
 	}
+	ReleaseMutex(hBallControlMutex);
 }
 
 void detectBallCollision(GameVariables* pGameVariables, int index)
@@ -688,16 +705,18 @@ void ballAndBrickCollision(GameVariables* pGameVariables, int index, int x, int 
 
 					for (int i = 0; i < pGameVariables->gameConfigs.maxBonus; i++)
 					{
+						WaitForSingleObject(hBonusMutex, INFINITE);
 						if (pGameData->bonus[i].status == BONUS_INACTIVE)
 						{
-							//TODO: Add mutex to protect num bonus change value
 							pGameData->bonus[i].status = BONUS_IN_PLAY;
 							pGameData->bonus[i].position.x = brick->position.x;
 							pGameData->bonus[i].position.y = brick->position.y;
 							pGameData->bonus[i].type = brick->bonusType;
 							pGameData->numBonus++;
+							ReleaseMutex(hBonusMutex);
 							return;
 						}
+						ReleaseMutex(hBonusMutex);
 					}
 				}
 			}
@@ -725,8 +744,7 @@ void ballAndBarrierCollision(GameVariables* pGameVariables, int index, int x, in
 				{
 					pGameData->ball[index].directionX = DIRECTION_X_LEFT;
 				}
-			}
-			else if (x >= pGameData->barrier[i].position.x + pGameData->barrierDimensions - hitbox)
+			} else if (x >= pGameData->barrier[i].position.x + pGameData->barrierDimensions - hitbox)
 			{
 				//Right side was hit
 				if (directionX == DIRECTION_RIGHT_TO_LEFT)

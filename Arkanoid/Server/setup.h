@@ -25,6 +25,7 @@ void createServersResponseSemaphores(HANDLE* hServerResponseSemaphoreItems, HAND
 //Registry
 int setupRegistryTopPlayers(HANDLE* hRegistryTop10Key, TCHAR* top10Value, DWORD* playerCount);
 void convertStringToTopPlayers(TopPlayer* topPlayers, TCHAR* top10Value, DWORD* playerCount);
+void convertTopPlayersToString(TopPlayer* topPlayers, TCHAR* top10Value, DWORD* playerCount);
 
 //Events
 void createGameUpdateEvent(HANDLE* hGameUpdateEvent);
