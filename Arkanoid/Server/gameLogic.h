@@ -66,6 +66,7 @@ void randomizeBallPosition(Ball* ball);
 void initializeGame(GameVariables* pGameVariables);
 void resetBall(Ball* ball);
 void initializeBricks(GameVariables* pGameVariables);
+void advanceLevel(GameVariables* pGameVariables);
 void ballMovement(GameVariables* pGameVariables);
 void detectBallCollision(GameVariables* pGameVariables, int index);
 void ballAndBrickCollision(GameVariables* pGameVariables, int index, int x, int y, int directionX);

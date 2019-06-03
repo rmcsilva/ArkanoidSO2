@@ -32,7 +32,7 @@ void createGameUpdateEvent(HANDLE* hGameUpdateEvent);
 
 //Named Pipes
 int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeRequestsEvents, HANDLE* hPipeGameUpdateEvents, int numPipes);
-void createMessageNamedPipe(HANDLE* hPipe, TCHAR* pipeName, DWORD openMode, DWORD maxPlayers, DWORD bufferSize, SECURITY_ATTRIBUTES sa);
+void createMessageNamedPipe(HANDLE* hPipe, TCHAR* pipeName, DWORD openMode, DWORD maxPlayers, DWORD bufferSize, SECURITY_ATTRIBUTES* sa);
 BOOL newPlayerPipeConnection(HANDLE hPipe, LPOVERLAPPED lpo);
 
 //Security Attributes

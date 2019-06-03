@@ -67,18 +67,19 @@ DWORD WINAPI GameLogic(LPVOID lpParam)
 
 		if (pGameData->lives == 0)
 		{
-			_tprintf(TEXT("\nGame Over!! Out of lives! Bad luck, try again!\n\n"));
+			_tprintf(TEXT("\n\nGame Over!! Out of lives! Bad luck, try again!\n"));
 			break;
 		}
-		else if (pGameVariables->gameConfigs.levels == pGameData->level)
+		else if (pGameVariables->gameConfigs.levels < pGameData->level)
 		{
-			_tprintf(TEXT("\nGame Over!! All levels cleared! Niceee\n\n"));
+			_tprintf(TEXT("\n\nGame Over!! All levels cleared! Niceee\n"));
 			break;
 		}
 
 		if (pGameData->numBricks == 0)
 		{
-			//TODO: Advance level, reset balls, reset bricks
+			advanceLevel(pGameVariables);
+			continue;
 		}
 
 		ballMovement(pGameVariables);
@@ -411,17 +412,17 @@ void initializeGame(GameVariables* pGameVariables)
 
 	pGameData->gameStatus = GAME_ACTIVE;
 	pGameData->numBalls = 1;
+	pGameData->level = 1;
 	pGameData->lives = pGameVariables->gameConfigs.initialLives;
-	pGameData->numBonus = 0;
-	pGameData->numBricks = 0;
 
+	pGameData->numBalls = 1;
 	for (int i = 0; i < MAX_BALLS; i++)
 	{
 		resetBall(&pGameData->ball[i]);
 	}
-
 	pGameData->ball[0].inPlay = TRUE;
 
+	pGameData->numBricks = 0;
 	initializeBricks(pGameVariables);
 
 	//Initialize bonus
@@ -503,6 +504,29 @@ void initializeBricks(GameVariables* pGameVariables)
 				pGameData->brick[index].resistance = 1;
 			}
 		}
+	}
+}
+
+void advanceLevel(GameVariables* pGameVariables)
+{
+	GameData* pGameData = pGameVariables->pGameData;
+
+	pGameData->level++;
+
+	pGameData->numBalls = 1;
+	for (int i = 0; i < MAX_BALLS; i++)
+	{
+		resetBall(&pGameData->ball[i]);
+	}
+	pGameData->ball[0].inPlay = TRUE;
+
+	pGameData->numBricks = 0;
+	initializeBricks(pGameVariables);
+
+	pGameData->numBonus = 0;
+	for (int i = 0; i < pGameVariables->gameConfigs.maxBonus; i++)
+	{
+		pGameData->bonus[i].status = BONUS_INACTIVE;
 	}
 }
 
@@ -689,6 +713,7 @@ void ballAndBrickCollision(GameVariables* pGameVariables, int index, int x, int 
 			}
 
 			brick->resistance--;
+			pGameData->numBricks--;
 
 			//If a valid player hit the ball increase scoreboard
 			if (ball->playerIndex != UNDEFINED_ID)

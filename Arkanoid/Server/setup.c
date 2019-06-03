@@ -362,7 +362,7 @@ int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeRequestsEvents, HANDL
 			PIPE_ACCESS_INBOUND,						// server -> read / client -> write access
 			numPipes,									// number of instances 
 			sizeof(ClientMessage),						// buffer size
-			sa);										// Custom security Attributes
+			&sa);										// Custom security Attributes
 
 		if (namedPipesData[i].hClientRequestsPipe == INVALID_HANDLE_VALUE)
 		{
@@ -376,7 +376,7 @@ int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeRequestsEvents, HANDL
 			PIPE_ACCESS_OUTBOUND,						// client -> read / server -> write access 
 			numPipes,									// number of instances 
 			sizeof(ServerMessage),						// buffer size
-			sa);										// Custom security Attributes
+			&sa);										// Custom security Attributes
 
 
 		if (namedPipesData[i].hServerResponsesPipe == INVALID_HANDLE_VALUE)
@@ -391,7 +391,7 @@ int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeRequestsEvents, HANDL
 			PIPE_ACCESS_OUTBOUND,				// client -> read / server -> write access 
 			numPipes,							// number of instances 
 			sizeof(GameData),					// buffer size
-			sa);								// Custom security Attributes
+			&sa);								// Custom security Attributes
 
 		if (namedPipesData[i].hGamePipe == INVALID_HANDLE_VALUE)
 		{
@@ -423,10 +423,8 @@ int setupNamedPipes(PipeData* namedPipesData, HANDLE* hPipeRequestsEvents, HANDL
 	return 1;
 }
 
-void createMessageNamedPipe(HANDLE* hPipe, TCHAR* pipeName, DWORD openMode, DWORD maxPlayers, DWORD bufferSize, SECURITY_ATTRIBUTES sa)
+void createMessageNamedPipe(HANDLE* hPipe, TCHAR* pipeName, DWORD openMode, DWORD maxPlayers, DWORD bufferSize, SECURITY_ATTRIBUTES* sa)
 {
-	//TODO: Add security attributes 
-
 	*hPipe = CreateNamedPipe(
 		pipeName,						// pipe name 
 		openMode |						// openMode access 
@@ -439,7 +437,7 @@ void createMessageNamedPipe(HANDLE* hPipe, TCHAR* pipeName, DWORD openMode, DWOR
 		bufferSize,						// output buffer size 
 		bufferSize,						// input buffer size 
 		0,								// client time-out 
-		&sa);							// custom security attributes
+		sa);							// custom security attributes
 }
 
 BOOL newPlayerPipeConnection(HANDLE hPipe, LPOVERLAPPED lpo)

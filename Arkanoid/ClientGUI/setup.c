@@ -9,8 +9,7 @@ int setupMovementKeys(HANDLE* hRegistryKey,TCHAR* rightMovementKey, TCHAR* leftM
 	if (RegCreateKeyEx(HKEY_CURRENT_USER, REGISTRY_KEY_MOVEMENT_PATH, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, hRegistryKey, &registryStatus) != ERROR_SUCCESS) {
 		_tprintf(TEXT("Error creating/opening registry key(%d)\n"), GetLastError());
 		return -1;
-	}
-	else
+	} else
 	{
 		//If key was created, initialize its values
 		if (registryStatus == REG_CREATED_NEW_KEY) {
