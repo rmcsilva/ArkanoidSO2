@@ -698,7 +698,7 @@ void movePlayerBarrier(int playerId, int direction)
 
 int checkIfUserIsInGame(int playerId)
 {
-	for(int i = 0; i < currentUsers; i++)
+	for(int i = 0; i < pGameDataMemory->numPlayers; i++)
 	{
 		if(pGameDataMemory->player[i].id == playerId)
 		{

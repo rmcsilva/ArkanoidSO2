@@ -52,6 +52,7 @@ DWORD WINAPI		GameUpdate(LPVOID lpParam);
 void				drawGame(GameData gameData);
 void				drawGameBackground();
 void				showTop10();
+HBRUSH				convertIndexToPlayerBarrierBrush(int index);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -175,6 +176,7 @@ HDC hTempDC = NULL;
 HBITMAP hGameBackgroundBitmap;
 BITMAP gameBackgroundBitmap;
 
+HBRUSH hPlayerBarrierColors[MAX_PLAYERS];
 HBITMAP hBricksBitmap[TOTAL_BRICK_TYPES];
 HICON hBallIcon;
 HICON hLivesIcon;
@@ -240,6 +242,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		ReleaseDC(hWnd, hDC);
 
+		//Load barrier colors
+		for (int i = 0; i < MAX_PLAYERS; ++i)
+		{
+			hPlayerBarrierColors[i] = convertIndexToPlayerBarrierBrush(i);
+		}
+
 		//Load Bricks
 		hBricksBitmap[BRICK_RESISTANCE1_INDEX] = (HBITMAP)LoadImage(NULL, BRICK_RESISTANCE1_PATH, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 		hBricksBitmap[BRICK_RESISTANCE2_INDEX] = (HBITMAP)LoadImage(NULL, BRICK_RESISTANCE2_PATH, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
@@ -275,7 +283,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			0,						// use default creation flags 
 			&dwGameThreadId);		// returns the thread identifier
 
-		PlaySound(GAME_MUSIC_PATH, NULL, SND_FILENAME | SND_LOOP | SND_ASYNC);
+		PlaySound(GAME_MUSIC_PATH, NULL, SND_FILENAME | SND_LOOP | SND_ASYNC | SND_NODEFAULT);
 		break;
     case WM_COMMAND:
         {
@@ -302,7 +310,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				} else
 				{
 					isMusicPlaying = TRUE;
-					PlaySound(GAME_MUSIC_PATH, NULL, SND_FILENAME | SND_LOOP | SND_ASYNC);
+					PlaySound(GAME_MUSIC_PATH, NULL, SND_FILENAME | SND_LOOP | SND_ASYNC | SND_NODEFAULT);
 				}
 				break;
             default:
@@ -531,8 +539,15 @@ void drawGame(GameData gameData)
 		}
 	}
 
-	//Draw Barrier
+	//Draw Barrier Indicator
 	RECT barrier;
+	barrier.left = GAME_BARRIER_INDICATOR_X;;
+	barrier.top = GAME_BARRIER_INDICATOR_Y;
+	barrier.right = GAME_BARRIER_INDICATOR_X + GAME_BARRIER_INDICATOR_WIDTH;
+	barrier.bottom = GAME_BARRIER_INDICATOR_Y + GAME_BARRIER_INDICATOR_HEIGHT;
+	FillRect(hMemDC, &barrier, hPlayerBarrierColors[playerIndex]);
+
+	//Draw Barriers
 	for(int i = 0; i < gameData.numPlayers; i++)
 	{
 		if (gameData.player[i].inGame == TRUE)
@@ -541,7 +556,7 @@ void drawGame(GameData gameData)
 			barrier.top = gameData.barrier[i].position.y;
 			barrier.right = gameData.barrier[i].position.x + gameData.barrierDimensions * gameData.barrier[i].sizeRatio;
 			barrier.bottom = DIM_Y_FRAME;
-			FillRect(hMemDC, &barrier, (HBRUSH)(COLOR_WINDOW + i));
+			FillRect(hMemDC, &barrier, hPlayerBarrierColors[i]);
 		}
 	}
 
@@ -744,4 +759,75 @@ INT_PTR CALLBACK settingsEventsDialog(HWND hDlg, UINT message, WPARAM wParam, LP
 		break;
 	}
 	return (INT_PTR)FALSE;
+}
+
+HBRUSH convertIndexToPlayerBarrierBrush(int index)
+{
+	HBRUSH temp = CreateSolidBrush(RGB(0,0,0));
+
+	switch (index)
+	{
+		case 0:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_0);
+			break;
+		case 1:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_1);
+			break;
+		case 2:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_2);
+			break;
+		case 3:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_3);
+			break;
+		case 4:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_4);
+			break;
+		case 5:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_5);
+			break;
+		case 6:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_6);
+			break;
+		case 7:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_7);
+			break;
+		case 8:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_8);
+			break;
+		case 9:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_9);
+			break;
+		case 10:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_10);
+			break;
+		case 11:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_11);
+			break;
+		case 12:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_12);
+			break;
+		case 13:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_13);
+			break;
+		case 14:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_14);
+			break;
+		case 15:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_15);
+			break;
+		case 16:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_16);
+			break;
+		case 17:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_17);
+			break;
+		case 18:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_18);
+			break;
+		case 19:
+			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_19);
+			break;
+	}
+
+	return temp;
 }

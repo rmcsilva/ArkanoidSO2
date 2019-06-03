@@ -77,3 +77,4 @@ void gameOver(GameData* pGameData);
 int getPlayerToTheRight(GameData gameData, int userPosition);
 int getPlayerToTheLeft(GameData gameData, int userPosition);
 void saveGameScoresAndOrderTop10(GameVariables* pGameVariables);
+int getInGamePlayers(GameData* pGameData);

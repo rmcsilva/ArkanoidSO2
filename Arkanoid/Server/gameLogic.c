@@ -65,14 +65,20 @@ DWORD WINAPI GameLogic(LPVOID lpParam)
 			return -1;
 		}
 
+		if (getInGamePlayers(pGameData) == 0)
+		{
+			_tprintf(TEXT("\n\nGame Over!! No players in the game!\n\n"));
+			break;
+		}
+
 		if (pGameData->lives == 0)
 		{
-			_tprintf(TEXT("\n\nGame Over!! Out of lives! Bad luck, try again!\n"));
+			_tprintf(TEXT("\n\nGame Over!! Out of lives! Bad luck, try again!\n\n"));
 			break;
 		}
 		else if (pGameVariables->gameConfigs.levels < pGameData->level)
 		{
-			_tprintf(TEXT("\n\nGame Over!! All levels cleared! Niceee\n"));
+			_tprintf(TEXT("\n\nGame Over!! All levels cleared! Niceee\n\n"));
 			break;
 		}
 
@@ -411,7 +417,6 @@ void initializeGame(GameVariables* pGameVariables)
 	GameData* pGameData = pGameVariables->pGameData;
 
 	pGameData->gameStatus = GAME_ACTIVE;
-	pGameData->numBalls = 1;
 	pGameData->level = 1;
 	pGameData->lives = pGameVariables->gameConfigs.initialLives;
 
@@ -890,4 +895,19 @@ void saveGameScoresAndOrderTop10(GameVariables* pGameVariables)
 
 	//Create value "TOP10PlayerCount" = top10PlayerCount
 	RegSetValueEx(pGameVariables->hResgistryTop10Key, TOP10_PLAYER_COUNT, 0, REG_DWORD, (LPBYTE)*top10PlayerCount, sizeof(DWORD));
+}
+
+int getInGamePlayers(GameData* pGameData)
+{
+	int counter = 0;
+
+	for (int i = 0; i < pGameData->numPlayers; ++i)
+	{
+		if (pGameData->player[i].inGame == TRUE)
+		{
+			counter++;
+		}
+	}
+
+	return counter;
 }
