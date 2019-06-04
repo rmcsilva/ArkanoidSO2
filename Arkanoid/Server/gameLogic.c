@@ -327,10 +327,10 @@ VOID CALLBACK BonusEffectAPCProc(
 
 	GameData* pGameData = pBonusTimerVariables->pGameVariables->pGameData;
 
-	double percentage;
-
-	switch (pGameData->bonus[pBonusTimerVariables->bonusIndex].type)
+	if (pGameData->bonus[pBonusTimerVariables->bonusIndex].status == BONUS_CAUGHT)
 	{
+		switch (pGameData->bonus[pBonusTimerVariables->bonusIndex].type)
+		{
 		case BONUS_SPEED_UP:
 			//Reduce ball speed according to the value it was increased 
 			ballBonusDecrease(pGameData);
@@ -341,15 +341,21 @@ VOID CALLBACK BonusEffectAPCProc(
 			break;
 		default:
 			return;
+		}
+
+		WaitForSingleObject(hBonusMutex, INFINITE);
+		pGameData->bonus[pBonusTimerVariables->bonusIndex].status = BONUS_INACTIVE;
+		pGameData->numBonus--;
+		ReleaseMutex(hBonusMutex);
+
+		OutputDebugString(TEXT("\nBonus timed out:\n\n"));
+		MessageBeep(0);
+	} else
+	{
+		OutputDebugString(TEXT("\nInvalid bonus:\n\n"));
 	}
 
-	WaitForSingleObject(hBonusMutex, INFINITE);
-	pGameData->bonus[pBonusTimerVariables->bonusIndex].status = BONUS_INACTIVE;
-	pGameData->numBonus--;
-	ReleaseMutex(hBonusMutex);
-
-	OutputDebugString(TEXT("\nBonus timed out:\n\n"));
-	MessageBeep(0);
+	
 }
 
 BOOL ballBonusIncrease(GameData* pGameData)
@@ -521,21 +527,25 @@ void advanceLevel(GameVariables* pGameVariables)
 
 	pGameData->level++;
 
+	WaitForSingleObject(hBallControlMutex, INFINITE);
 	pGameData->numBalls = 1;
 	for (int i = 0; i < MAX_BALLS; i++)
 	{
 		resetBall(&pGameData->ball[i]);
 	}
 	pGameData->ball[0].inPlay = TRUE;
+	ReleaseMutex(hBallControlMutex);
 
 	pGameData->numBricks = 0;
 	initializeBricks(pGameVariables);
 
 	pGameData->numBonus = 0;
+	WaitForSingleObject(hBonusMutex, INFINITE);
 	for (int i = 0; i < pGameVariables->gameConfigs.maxBonus; i++)
 	{
 		pGameData->bonus[i].status = BONUS_INACTIVE;
 	}
+	ReleaseMutex(hBonusMutex);
 }
 
 void sendGameUpdate(GameVariables gameVariables)
@@ -604,6 +614,7 @@ void detectBallCollision(GameVariables* pGameVariables, int index)
 	{
 		//Bottom border hit -> Move up instead
 		//Resets the ball
+		WaitForSingleObject(hBallControlMutex, INFINITE);
 		resetBall(ball);
 
 		//If it was the last ball removes a life and puts the ball back in play
@@ -616,6 +627,7 @@ void detectBallCollision(GameVariables* pGameVariables, int index)
 		{
 			pGameData->numBalls--;
 		}
+		ReleaseMutex(hBallControlMutex);
 
 		return;
 	}
