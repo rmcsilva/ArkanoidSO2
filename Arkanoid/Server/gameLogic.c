@@ -208,7 +208,10 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 								case BONUS_EXTRA_LIFE:
 									pGameData->bonus[i].status = BONUS_INACTIVE;
 									pGameData->numBonus--;
-									pGameData->lives++;
+									if(pGameData->lives < pGameVariables->gameConfigs.initialLives)
+									{
+										pGameData->lives++;
+									}
 									break;
 								case BONUS_TRIPLE_BALL:
 									tripleBallBonus(pGameData);
