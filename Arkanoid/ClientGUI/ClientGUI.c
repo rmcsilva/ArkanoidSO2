@@ -579,11 +579,14 @@ void drawGame(GameData gameData)
 
 	//Draw Barrier Indicator
 	RECT barrier;
-	barrier.left = GAME_BARRIER_INDICATOR_X;;
-	barrier.top = GAME_BARRIER_INDICATOR_Y;
-	barrier.right = GAME_BARRIER_INDICATOR_X + GAME_BARRIER_INDICATOR_WIDTH;
-	barrier.bottom = GAME_BARRIER_INDICATOR_Y + GAME_BARRIER_INDICATOR_HEIGHT;
-	FillRect(hMemDC, &barrier, hPlayerBarrierColors[playerIndex]);
+	if(playerIndex != UNDEFINED_ID)
+	{
+		barrier.left = GAME_BARRIER_INDICATOR_X;;
+		barrier.top = GAME_BARRIER_INDICATOR_Y;
+		barrier.right = GAME_BARRIER_INDICATOR_X + GAME_BARRIER_INDICATOR_WIDTH;
+		barrier.bottom = GAME_BARRIER_INDICATOR_Y + GAME_BARRIER_INDICATOR_HEIGHT;
+		FillRect(hMemDC, &barrier, hPlayerBarrierColors[playerIndex]);
+	}
 
 	//Draw Barriers
 	for(int i = 0; i < gameData.numPlayers; i++)

@@ -16,6 +16,7 @@ unsigned int random;
 
 HANDLE hBallControlMutex;
 HANDLE hBonusMutex;
+HANDLE hBrickMovementMutex;
 
 HANDLE hBonusEvent;
 
@@ -128,6 +129,9 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 	HANDLE hBonusDurationThread;
 	DWORD hBonusDurationThreadID;
 
+	HANDLE hBrickMovementThread;
+	DWORD hBrickMovementThreadID;
+
 	timeToWait.QuadPart = _100MILLISECONDS;
 
 	// Create an unnamed waitable timer for the bonus movement.
@@ -146,6 +150,15 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 		(LPVOID)pGameVariables,		// argument to thread function 
 		0,							// use default creation flags 
 		&hBonusDurationThreadID);	// returns the thread identifier 
+
+	//Thread to handle the bricks movement logic
+	hBrickMovementThread = CreateThread(
+		NULL,						// default security attributes
+		0,							// use default stack size  
+		BricksMovementLogic,		// thread function name
+		(LPVOID)pGameVariables,		// argument to thread function 
+		0,							// use default creation flags 
+		&hBrickMovementThreadID);	// returns the thread identifier 
 
 	while (pGameData->gameStatus != GAME_OVER)
 	{
@@ -168,6 +181,7 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 
 				int yStart = pGameData->bonus[i].position.y;
 				int yEnd = pGameData->bonus[i].position.y + GAME_BONUS_HEIGHT;
+				int status;
 				//Check if bonus is in the player barrier area
 				if ((yEnd >= GAME_BARRIER_Y && yEnd <= DIM_Y_FRAME) || (yStart >= GAME_BARRIER_Y && yStart <= DIM_Y_FRAME))
 				{
@@ -179,34 +193,33 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 						int barrierDimension = pGameData->barrierDimensions * pGameData->barrier[j].sizeRatio;
 						if (x >= pGameData->barrier[j].position.x && x <= pGameData->barrier[j].position.x + barrierDimension)
 						{
-							WaitForSingleObject(hBonusMutex, INFINITE);
 							switch (pGameData->bonus[i].type)
 							{
 								//TODO: Add more bonus types
 								case BONUS_SPEED_UP:
 									if (ballBonusIncrease(pGameData) == TRUE)
 									{
-										pGameData->bonus[i].status = BONUS_CAUGHT;
+										status = BONUS_CAUGHT;
 										SetEvent(hBonusTimeoutEvent[i]);
 									} else
 									{
-										pGameData->bonus[i].status = BONUS_INACTIVE;
+										status = BONUS_INACTIVE;
 										pGameData->numBonus--;
 									}
 									break;
 								case BONUS_SLOW_DOWN:
 									if (ballBonusDecrease(pGameData) == TRUE)
 									{
-										pGameData->bonus[i].status = BONUS_CAUGHT;
+										status = BONUS_CAUGHT;
 										SetEvent(hBonusTimeoutEvent[i]);
 									} else
 									{
-										pGameData->bonus[i].status = BONUS_INACTIVE;
+										status = BONUS_INACTIVE;
 										pGameData->numBonus--;
 									}
 									break;
 								case BONUS_EXTRA_LIFE:
-									pGameData->bonus[i].status = BONUS_INACTIVE;
+									status = BONUS_INACTIVE;
 									pGameData->numBonus--;
 									if(pGameData->lives < pGameVariables->gameConfigs.initialLives)
 									{
@@ -215,10 +228,13 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 									break;
 								case BONUS_TRIPLE_BALL:
 									tripleBallBonus(pGameData);
-									pGameData->bonus[i].status = BONUS_INACTIVE;
+									status = BONUS_INACTIVE;
 									pGameData->numBonus--;
 									break;
 							}
+							//Change bonus status
+							WaitForSingleObject(hBonusMutex, INFINITE);
+							pGameData->bonus[i].status = status;
 							ReleaseMutex(hBonusMutex);
 							OutputDebugString(TEXT("\nPlayer catched a bonus!!\n"));
 							break;
@@ -244,6 +260,8 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 
 	SetEvent(hBonusTimeoutEvent[0]);
 	WaitForSingleObject(hBonusDurationThread, INFINITE);
+
+	WaitForSingleObject(hBrickMovementThread, INFINITE);
 
 	CloseHandle(hBonusWait);
 
@@ -354,8 +372,79 @@ VOID CALLBACK BonusEffectAPCProc(
 	{
 		OutputDebugString(TEXT("\nInvalid bonus:\n\n"));
 	}
+}
 
-	
+DWORD WINAPI BricksMovementLogic(LPVOID lpParam)
+{
+	GameVariables* pGameVariables = (GameVariables*)lpParam;
+	GameData* pGameData = pGameVariables->pGameData;
+
+	HANDLE hBrickMovementWait;
+	LARGE_INTEGER timeToWait;
+
+	int movementSpeed = pGameVariables->gameConfigs.movementSpeed;
+
+	timeToWait.QuadPart = _100MILLISECONDS * 10;
+
+	// Create an unnamed waitable timer for the bonus movement.
+	hBrickMovementWait = CreateWaitableTimer(NULL, TRUE, NULL);
+
+	if (hBrickMovementWait == NULL)
+	{
+		_tprintf(TEXT("CreateWaitableTimer failed (%d)\n"), GetLastError());
+		return -1;
+	}
+
+	int index;
+
+	while (pGameData->gameStatus != GAME_OVER)
+	{
+		if (!SetWaitableTimer(hBrickMovementWait, &timeToWait, 0, NULL, NULL, 0))
+		{
+			_tprintf(TEXT("SetWaitableTimer failed (%d)\n"), GetLastError());
+			return -1;
+		}
+
+		//Check bricks direction
+		if (pGameData->bricksDirectionX == DIRECTION_X_RIGHT)
+		{
+			//Bricks are going to the right so check if collision happened
+			if (pGameData->brick[MAX_BRICKS_IN_LINE - 1].position.x + BRICKS_WIDTH >= GAME_BORDER_RIGHT)
+			{
+				pGameData->bricksDirectionX = DIRECTION_X_LEFT;
+				movementSpeed *= -1;
+			}
+
+		} else if(pGameData->bricksDirectionX == DIRECTION_X_LEFT)
+		{
+			//Bricks are going to the left so check if collision happened
+			if (pGameData->brick[0].position.x <= GAME_BORDER_LEFT)
+			{
+				pGameData->bricksDirectionX = DIRECTION_X_RIGHT;
+				movementSpeed *= -1;
+			}
+		}
+
+		WaitForSingleObject(hBrickMovementMutex, INFINITE);
+		for (int i = 0; i < MAX_BRICK_LINES; i++)
+		{
+			for (int j = 0; j < MAX_BRICKS_IN_LINE; j++)
+			{
+				index = j + i * MAX_BRICKS_IN_LINE;
+				pGameData->brick[index].position.x += movementSpeed;
+			}
+		}
+		ReleaseMutex(hBrickMovementMutex);
+
+		if (WaitForSingleObject(hBrickMovementWait, INFINITE) != WAIT_OBJECT_0) {
+			_tprintf(TEXT("WaitForSingleObject failed (%d)\n"), GetLastError());
+			return -1;
+		}
+	}
+
+	CloseHandle(hBrickMovementWait);
+
+	return 1;
 }
 
 BOOL ballBonusIncrease(GameData* pGameData)
@@ -418,7 +507,7 @@ void randomizeBallPosition(Ball* ball)
 	ball->position.x = random % GAME_BOARD_WIDTH + GAME_BORDER_LEFT;
 
 	rand_s(&random);
-	ball->position.y = random % GAME_BALL_RANDOM_AREA_Y + GAME_BRICKS_BOTTOM + GAME_BORDER_TOP;
+	ball->position.y = random % GAME_BALL_RANDOM_AREA_Y + GAME_BRICKS_BOTTOM;
 }
 
 void initializeGame(GameVariables* pGameVariables)
@@ -436,6 +525,7 @@ void initializeGame(GameVariables* pGameVariables)
 	}
 	pGameData->ball[0].inPlay = TRUE;
 
+	pGameData->bricksDirectionX = DIRECTION_X_RIGHT;
 	pGameData->numBricks = 0;
 	initializeBricks(pGameVariables);
 
@@ -453,6 +543,11 @@ void initializeGame(GameVariables* pGameVariables)
 		NULL);             // unnamed mutex
 
 	hBonusMutex = CreateMutex(
+		NULL,              // default security attributes
+		FALSE,             // initially not owned
+		NULL);             // unnamed mutex
+
+	hBrickMovementMutex = CreateMutex(
 		NULL,              // default security attributes
 		FALSE,             // initially not owned
 		NULL);             // unnamed mutex
@@ -501,7 +596,7 @@ void initializeBricks(GameVariables* pGameVariables)
 			pGameData->numBricks++;
 			index = j + i * MAX_BRICKS_IN_LINE;
 			//Setup brick position
-			pGameData->brick[index].position.x = (BRICKS_WIDTH + BRICKS_MARGIN) * j + GAME_BORDER_LEFT;
+			pGameData->brick[index].position.x = (BRICKS_WIDTH + GAME_BRICKS_MARGIN) * j + GAME_BORDER_LEFT;
 			pGameData->brick[index].position.y = BRICKS_HEIGHT * i + GAME_BORDER_TOP;
 			pGameData->brick[index].hasBonus = FALSE;
 			rand_s(&random);
@@ -510,7 +605,7 @@ void initializeBricks(GameVariables* pGameVariables)
 			//Setup bonus
 			rand_s(&random);
 			probability = (random % 100) + 1;
-			if (probability < pGameVariables->gameConfigs.bonusProbability)
+			if (probability <= pGameVariables->gameConfigs.bonusProbability)
 			{
 				pGameData->brick[index].hasBonus = TRUE;
 				rand_s(&random);
@@ -614,7 +709,6 @@ void detectBallCollision(GameVariables* pGameVariables, int index)
 	{
 		//Bottom border hit -> Move up instead
 		//Resets the ball
-		WaitForSingleObject(hBallControlMutex, INFINITE);
 		resetBall(ball);
 
 		//If it was the last ball removes a life and puts the ball back in play
@@ -627,7 +721,6 @@ void detectBallCollision(GameVariables* pGameVariables, int index)
 		{
 			pGameData->numBalls--;
 		}
-		ReleaseMutex(hBallControlMutex);
 
 		return;
 	}
@@ -691,12 +784,30 @@ void ballAndBrickCollision(GameVariables* pGameVariables, int index, int x, int 
 	if (ball->position.y >= GAME_BORDER_TOP && ball->position.y <= GAME_BRICKS_BOTTOM)
 	{
 		//Convert ball position to brick index
-		int brickIndexX = (x - GAME_BORDER_LEFT) / (BRICKS_WIDTH + BRICKS_MARGIN);
 		int brickIndexY = (y - GAME_BORDER_TOP) / BRICKS_HEIGHT;
 
-		int brickIndex = brickIndexX + (brickIndexY - 1) * MAX_BRICKS_IN_LINE;
+		int brickIndex;
+		Brick* brick = NULL;
 
-		Brick* brick = &pGameData->brick[brickIndex];
+		//Find brickIndexX
+		WaitForSingleObject(hBrickMovementMutex, INFINITE);
+		for(int i = 0; i < MAX_BRICKS_IN_LINE; i++)
+		{
+			brickIndex = i + (brickIndexY - 1) * MAX_BRICKS_IN_LINE;
+			brick = &pGameData->brick[brickIndex];
+
+			if(x >= brick->position.x && x <= brick->position.x + BRICKS_WIDTH + GAME_BRICKS_MARGIN)
+			{
+				break;
+			}
+		}
+		ReleaseMutex(hBrickMovementMutex);
+
+		if(brick == NULL)
+		{
+			OutputDebugString(TEXT("Could not find brick!!"));
+			return;
+		}
 
 		if (brick->resistance > 0)
 		{

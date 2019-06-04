@@ -59,6 +59,7 @@ DWORD WINAPI GameLogic(LPVOID lpParam);
 DWORD WINAPI BonusLogic(LPVOID lpParam);
 DWORD WINAPI BonusDuration(LPVOID lpParam);
 VOID CALLBACK BonusEffectAPCProc(LPVOID lpArg, DWORD dwTimerLowValue, DWORD dwTimerHighValue);
+DWORD WINAPI BricksMovementLogic(LPVOID lpParam);
 BOOL ballBonusIncrease(GameData* pGameData);
 BOOL ballBonusDecrease(GameData* pGameData);
 void tripleBallBonus(GameData* pGameData);

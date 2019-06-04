@@ -61,6 +61,7 @@ typedef struct GameData {
 	int numPlayers;
 	Player player[MAX_PLAYERS];
 	Barrier barrier[MAX_PLAYERS];
+	int bricksDirectionX;
 	int numBricks;
 	Brick brick[MAX_BRICKS];
 	int numBonus;
