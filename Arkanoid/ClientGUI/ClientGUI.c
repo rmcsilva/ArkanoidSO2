@@ -53,6 +53,7 @@ void				drawGame(GameData gameData);
 void				drawGameBackground();
 void				showTop10();
 HBRUSH				convertIndexToPlayerBarrierBrush(int index);
+HBRUSH				convertIndexToBonusIndicatorBrush(int index);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -186,6 +187,7 @@ HICON hSlowIcon;
 HICON hFastIcon;
 HICON hExtraIcon;
 HICON hTripleIcon;
+HBRUSH hBonusIndicatorColors[GAME_BONUS_INIDICATOR_TOTAL_COLORS];
 
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
@@ -246,6 +248,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		for (int i = 0; i < MAX_PLAYERS; ++i)
 		{
 			hPlayerBarrierColors[i] = convertIndexToPlayerBarrierBrush(i);
+		}
+
+		//Load bonus indicator colors
+		for (int i = 0; i < GAME_BONUS_INIDICATOR_TOTAL_COLORS; ++i)
+		{
+			hBonusIndicatorColors[i] = convertIndexToBonusIndicatorBrush(i);
 		}
 
 		//Load Bricks
@@ -386,6 +394,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		for(int i = 0; i < TOTAL_BRICK_TYPES; i++)
 		{
 			DeleteObject(hBricksBitmap[i]);
+		}
+
+		for (int i = 0; i < MAX_PLAYERS; ++i)
+		{
+			DeleteObject(hPlayerBarrierColors[i]);
+		}
+
+		for (int i = 0; i < GAME_BONUS_INIDICATOR_TOTAL_COLORS; ++i)
+		{
+			DeleteObject(hBonusIndicatorColors[i]);
 		}
 
 		DestroyIcon(hBallIcon);
@@ -531,11 +549,31 @@ void drawGame(GameData gameData)
 
 	SelectObject(hTempDC, hBallIcon);
 	//Draw balls
+	int x, y, velocityRatio;
 	for (int i = 0; i < MAX_BALLS; i++)
 	{
 		if (gameData.ball[i].inPlay == TRUE)
 		{
-			DrawIcon(hMemDC, gameData.ball[i].position.x, gameData.ball[i].position.y, hBallIcon);
+			x = gameData.ball[i].position.x;
+			y = gameData.ball[i].position.y;
+			DrawIcon(hMemDC, x, y, hBallIcon);
+			
+			velocityRatio = gameData.ball[i].velocityRatio;
+			if (velocityRatio != 100)
+			{
+				x += GAME_BONUS_INDICATOR_DIAMETER;
+				y += GAME_BONUS_INDICATOR_DIAMETER;
+				
+				if (velocityRatio >= 200)		SelectObject(hMemDC, hBonusIndicatorColors[GAME_BONUS_SPEED_UP_5]);
+				else if (velocityRatio >= 180)	SelectObject(hMemDC, hBonusIndicatorColors[GAME_BONUS_SPEED_UP_4]);
+				else if (velocityRatio >= 160)	SelectObject(hMemDC, hBonusIndicatorColors[GAME_BONUS_SPEED_UP_3]);
+				else if (velocityRatio >= 140)	SelectObject(hMemDC, hBonusIndicatorColors[GAME_BONUS_SPEED_UP_2]);
+				else if (velocityRatio >= 120)	SelectObject(hMemDC, hBonusIndicatorColors[GAME_BONUS_SPEED_UP_1]);
+				else if (velocityRatio >= 80)	SelectObject(hMemDC, hBonusIndicatorColors[GAME_BONUS_SLOW_DOWN_1]);
+				else if (velocityRatio >= 60)	SelectObject(hMemDC, hBonusIndicatorColors[GAME_BONUS_SLOW_DOWN_2]);
+
+				Ellipse(hMemDC, x, y, x + GAME_BONUS_INDICATOR_DIAMETER, y + GAME_BONUS_INDICATOR_DIAMETER);
+			}
 		}
 	}
 
@@ -827,6 +865,38 @@ HBRUSH convertIndexToPlayerBarrierBrush(int index)
 		case 19:
 			temp = CreateSolidBrush(GAME_PLAYER_BARRIER_COLOR_19);
 			break;
+	}
+
+	return temp;
+}
+
+HBRUSH convertIndexToBonusIndicatorBrush(int index) 
+{
+	HBRUSH temp = CreateSolidBrush(RGB(0, 0, 0));
+
+	switch (index)
+	{
+	case 0:
+		temp = CreateSolidBrush(GAME_BONUS_SLOW_DOWN_1_COLOR);
+		break;
+	case 1:
+		temp = CreateSolidBrush(GAME_BONUS_SLOW_DOWN_2_COLOR);
+		break;
+	case 2:
+		temp = CreateSolidBrush(GAME_BONUS_SPEED_UP_1_COLOR);
+		break;
+	case 3:
+		temp = CreateSolidBrush(GAME_BONUS_SPEED_UP_2_COLOR);
+		break;
+	case 4:
+		temp = CreateSolidBrush(GAME_BONUS_SPEED_UP_3_COLOR);
+		break;
+	case 5:
+		temp = CreateSolidBrush(GAME_BONUS_SPEED_UP_4_COLOR);
+		break;
+	case 6:
+		temp = CreateSolidBrush(GAME_BONUS_SPEED_UP_5_COLOR);
+		break;
 	}
 
 	return temp;
