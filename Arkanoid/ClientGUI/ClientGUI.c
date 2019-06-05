@@ -15,7 +15,6 @@
 #include <Mmsystem.h>
 #include <windows.h>
 
-
 #define MAX_LOADSTRING 100
 
 // Global Variables:
@@ -23,23 +22,28 @@ HINSTANCE hInst;                                // current instance
 WCHAR szTitle[MAX_LOADSTRING];                  // The title bar text
 WCHAR szWindowClass[MAX_LOADSTRING];            // the main window class name
 BOOL shutdown = FALSE;							// used to signal errors that cause the server to shutdown
-GameData gameData;
-HWND gHwnd;
+GameData gameData;								// holds the current game information
+HWND gHwnd;										// global window handle
 
-HANDLE hGameThread;
+HANDLE hGameThread;								//Thread to handle the game updates
 DWORD dwGameThreadId;
-int playerIndex = UNDEFINED_ID;
+int playerIndex = UNDEFINED_ID;					//Player index in the game
 
-DWORD mainThreadId;								
+HANDLE hExplosionAnimationThread;				//Thread to handle the bricks explosion
+DWORD dwExplosionAnimationThreadId;
 
-HANDLE hRegistryKey;
+HANDLE hExplosionMutex;							//Mutex to prevent several explosions from being written to the screen at once
 
-TCHAR rightMovementKey;
-TCHAR leftMovementKey;
+DWORD mainThreadId;								//Id of the main thread so the other threads can send a message
 
-HFONT hScoreFont;
+HANDLE hRegistryKey;							//Registry key for the client movement settings
 
-BOOL isMusicPlaying = TRUE;
+TCHAR rightMovementKey;							//Client right movement key
+TCHAR leftMovementKey;							//Client left movement key
+
+HFONT hScoreFont;								//Font used to draw the score
+
+BOOL isMusicPlaying = TRUE;						//Boolean to play/play the game music
 
 // Forward declarations of functions included in this code module:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -49,6 +53,7 @@ INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	loginEventsDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK	settingsEventsDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 DWORD WINAPI		GameUpdate(LPVOID lpParam);
+DWORD WINAPI		ExplosionAnimation(LPVOID lpParam);
 void				drawGame(GameData gameData);
 void				drawGameBackground();
 void				showTop10();
@@ -168,26 +173,32 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    return TRUE;
 }
 
+int bricksResistance[MAX_BRICKS];
+
 //Global variables used to draw on screen
-HDC hMemDC = NULL;
-HBITMAP hMemBitmap = NULL;
-HBRUSH hBrush = NULL;
+HDC hMemDC = NULL;							//Handle to game double buffer DC
+HDC hAnimationDC = NULL;					//Handle to the explosion animation buffer DC
+HBITMAP hMemBitmap = NULL;					//Bitmap associated with the game DC
+HBITMAP hAnimationBitmap = NULL;			//Bitmap associated with the explosion animation DC			
 HDC hTempDC = NULL;
 
-HBITMAP hGameBackgroundBitmap;
-BITMAP gameBackgroundBitmap;
+HBITMAP hGameBackgroundBitmap;				//Handle to the game background
 
-HBRUSH hPlayerBarrierColors[MAX_PLAYERS];
-HBITMAP hBricksBitmap[TOTAL_BRICK_TYPES];
-HICON hBallIcon;
-HICON hLivesIcon;
-RECT scoreBox;
+HCURSOR hExplosionAnimationCursor;			//Animated cursor for the bricks explosion
+BITMAP bmExplosionAnimationCursor;			//Explosion animated cursor info
+LARGE_INTEGER timeToWait;					//Time to wait between each cursors frame
+
+HBRUSH hPlayerBarrierColors[MAX_PLAYERS];	//Brush with the colors of all the player barriers
+HBITMAP hBricksBitmap[TOTAL_BRICK_TYPES];	//Game bricks bitmap
+HICON hBallIcon;							//Icon for the game ball
+HICON hLivesIcon;							//Icon for the players lives
+RECT scoreBox;								//Rectangle with the score box area
 //Bonus icons
-HICON hSlowIcon;
-HICON hFastIcon;
-HICON hExtraIcon;
-HICON hTripleIcon;
-HBRUSH hBonusIndicatorColors[GAME_BONUS_INIDICATOR_TOTAL_COLORS];
+HICON hSlowIcon;							//Game slow down bonus icon
+HICON hFastIcon;							//Game speed up bonus icon
+HICON hExtraIcon;							//Game extra life icon
+HICON hTripleIcon;							//Game triple ball icon
+HBRUSH hBonusIndicatorColors[GAME_BONUS_INIDICATOR_TOTAL_COLORS];	//Brush used to indicate which velocity bonus effect the ball has
 
 //
 //  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
@@ -201,9 +212,8 @@ HBRUSH hBonusIndicatorColors[GAME_BONUS_INIDICATOR_TOTAL_COLORS];
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	int xPos, yPos;
+	int xPos;
 	TCHAR letter;
-	RECT rect;
 	HDC hDC;
 	PAINTSTRUCT ps;
 
@@ -230,19 +240,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		}
 
+		//Initialize timer timer
+		timeToWait.QuadPart = GAME_EXPLOSION_ANIMATION_TIME;
+
 		//Load assets
 		hDC = GetDC(hWnd);
 		hMemDC = CreateCompatibleDC(hDC);
+		hAnimationDC = CreateCompatibleDC(hDC);
 		hMemBitmap = CreateCompatibleBitmap(hDC, DIM_X_FRAME, DIM_Y_FRAME);
+		hAnimationBitmap = CreateCompatibleBitmap(hDC, DIM_X_FRAME, DIM_Y_FRAME);
 
+		SelectObject(hAnimationDC, hAnimationBitmap);
 		SelectObject(hMemDC, hMemBitmap);
 
 		hGameBackgroundBitmap = (HBITMAP)LoadImage(GetModuleHandle(NULL), MAKEINTRESOURCE(IDB_ARKANOID_GAME), IMAGE_BITMAP, 0, 0, LR_DEFAULTSIZE);
-		GetObject(hGameBackgroundBitmap, sizeof(gameBackgroundBitmap), &gameBackgroundBitmap);
 
 		drawGameBackground();
 
 		ReleaseDC(hWnd, hDC);
+
+		//Load animation cursor
+		hExplosionAnimationCursor = LoadCursorFromFile(GAME_EXPLOSION_PATH);
+		ICONINFO infoExplosionAnimationCursor;
+		GetIconInfo(hExplosionAnimationCursor, &infoExplosionAnimationCursor);
+		GetObject(infoExplosionAnimationCursor.hbmMask, sizeof(bmExplosionAnimationCursor), &bmExplosionAnimationCursor);
 
 		//Load barrier colors
 		for (int i = 0; i < MAX_PLAYERS; ++i)
@@ -291,6 +312,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			0,						// use default creation flags 
 			&dwGameThreadId);		// returns the thread identifier
 
+		hExplosionMutex = CreateMutex(
+			NULL,              // default security attributes
+			FALSE,             // initially not owned
+			NULL);             // unnamed mutex
+
 		PlaySound(GAME_MUSIC_PATH, NULL, SND_FILENAME | SND_LOOP | SND_ASYNC | SND_NODEFAULT);
 		break;
     case WM_COMMAND:
@@ -327,7 +353,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
 	case WM_CHAR:
-		if(inGame == TRUE)
+		if(inGame == TRUE && playerIndex != UNDEFINED_ID)
 		{
 			//TODO: Check if player is playing or just watching
 			letter = (TCHAR)wParam;
@@ -343,7 +369,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case WM_MOUSEMOVE:
-		if(inGame == TRUE)
+		if(inGame == TRUE && playerIndex != UNDEFINED_ID)
 		{
 			xPos = GET_X_LPARAM(lParam);
 
@@ -364,6 +390,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if (inGame == TRUE)
 		{
 			drawGame(gameData);
+			WaitForSingleObject(hExplosionMutex, INFINITE);
+			BitBlt(hMemDC, 0, 0, DIM_X_FRAME, DIM_Y_FRAME, hAnimationDC, 0, 0, SRCPAINT);
+			ReleaseMutex(hExplosionMutex);
 		} else
 		{
 			drawGameBackground();
@@ -388,7 +417,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
     case WM_DESTROY:
-		//TODO: Delete the other objects
 		DeleteObject(hGameBackgroundBitmap);
 
 		for(int i = 0; i < TOTAL_BRICK_TYPES; i++)
@@ -413,6 +441,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		DeleteObject(hMemBitmap);
 		DeleteDC(hMemDC);
+
+		DeleteObject(hAnimationBitmap);
+		DeleteDC(hAnimationDC);
+
+		DestroyCursor(hExplosionAnimationCursor);
 
 		RegCloseKey(hRegistryKey);
 		logout();
@@ -456,6 +489,7 @@ DWORD WINAPI GameUpdate(LPVOID lpParam)
 
 			if(playerIndex == UNDEFINED_ID)
 			{
+				//Initilize player index
 				for (int i = 0; i < gameData.numPlayers; i++)
 				{
 					if (gameData.player[i].id == id)
@@ -464,8 +498,36 @@ DWORD WINAPI GameUpdate(LPVOID lpParam)
 						break;
 					}
 				}
+
+				//Initilize bricks resistance
+				for(int i = 0; i < gameData.numBricks; i++)
+				{
+					bricksResistance[i] = gameData.brick[i].resistance;
+				}
 			}
 			inGame = TRUE;
+
+			//Check if bricks resistance changed
+			for(int i = 0, j = 0; j < gameData.numBricks; i++)
+			{
+				if (gameData.brick[i].resistance != bricksResistance[i])
+				{
+					bricksResistance[i] = gameData.brick[i].resistance;
+
+					hExplosionAnimationThread = CreateThread(
+						NULL,							// default security attributes
+						0,								// use default stack size  
+						ExplosionAnimation,				// thread function name
+						&gameData.brick[i],				// argument to thread function 
+						0,								// use default creation flags 
+						&dwExplosionAnimationThreadId);	// returns the thread identifier
+				}
+
+				if(gameData.brick[i].resistance != 0)
+				{
+					j++;
+				}
+			}
 
 			InvalidateRect(gHwnd, NULL, TRUE);
 		}
@@ -480,6 +542,56 @@ DWORD WINAPI GameUpdate(LPVOID lpParam)
 		receiveMessage(TOP10);
 		showTop10();
 	}
+
+	return 1;
+}
+
+DWORD WINAPI ExplosionAnimation(LPVOID lpParam)
+{
+	Brick* brick = (Brick*)lpParam;
+
+	// Create an unnamed waitable timer.
+	HANDLE hExplosionAnimationTimer = CreateWaitableTimer(NULL, TRUE, NULL);
+
+	if (hExplosionAnimationTimer == NULL)
+	{
+		_tprintf(TEXT("CreateWaitableTimer failed (%d)\n"), GetLastError());
+		return -1;
+	}
+
+	//Calculate center of the brick
+	int xPos = brick->position.x + BRICKS_WIDTH / 2;
+	xPos -= bmExplosionAnimationCursor.bmWidth / 2;
+	int yPos = brick->position.y + BRICKS_HEIGHT / 2;
+	yPos -= bmExplosionAnimationCursor.bmHeight / 2;
+
+
+	for (int i = 0; i < GAME_EXPLOSION_FRAMES; ++i)
+	{
+		WaitForSingleObject(hExplosionMutex, INFINITE);
+		PatBlt(hAnimationDC, xPos, yPos, bmExplosionAnimationCursor.bmWidth, bmExplosionAnimationCursor.bmHeight, BLACKNESS);
+		DrawIconEx(hAnimationDC, xPos, yPos, (HCURSOR)hExplosionAnimationCursor, 0, 0, i, NULL, DI_NORMAL);
+		ReleaseMutex(hExplosionMutex);
+
+		InvalidateRect(gHwnd, NULL, TRUE);
+
+		// Set a timer to wait.
+		if (!SetWaitableTimer(hExplosionAnimationTimer, &timeToWait, 0, NULL, NULL, 0))
+		{
+			_tprintf(TEXT("SetWaitableTimer failed (%d)\n"), GetLastError());
+			return -1;
+		}
+
+		WaitForSingleObject(hExplosionAnimationTimer, INFINITE);
+	}
+
+	WaitForSingleObject(hExplosionMutex, INFINITE);
+	PatBlt(hAnimationDC, xPos, yPos, bmExplosionAnimationCursor.bmWidth, bmExplosionAnimationCursor.bmHeight, BLACKNESS);
+	ReleaseMutex(hExplosionMutex);
+
+	InvalidateRect(gHwnd, NULL, TRUE);
+
+	CloseHandle(hExplosionAnimationTimer);
 
 	return 1;
 }
@@ -564,7 +676,7 @@ void drawGame(GameData gameData)
 				x += GAME_BONUS_INDICATOR_DIAMETER;
 				y += GAME_BONUS_INDICATOR_DIAMETER;
 				
-				if (velocityRatio >= 200)		SelectObject(hMemDC, hBonusIndicatorColors[GAME_BONUS_SPEED_UP_5]);
+				if		(velocityRatio >= 200)	SelectObject(hMemDC, hBonusIndicatorColors[GAME_BONUS_SPEED_UP_5]);
 				else if (velocityRatio >= 180)	SelectObject(hMemDC, hBonusIndicatorColors[GAME_BONUS_SPEED_UP_4]);
 				else if (velocityRatio >= 160)	SelectObject(hMemDC, hBonusIndicatorColors[GAME_BONUS_SPEED_UP_3]);
 				else if (velocityRatio >= 140)	SelectObject(hMemDC, hBonusIndicatorColors[GAME_BONUS_SPEED_UP_2]);

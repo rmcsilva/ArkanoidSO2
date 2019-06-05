@@ -21,6 +21,11 @@
 
 #define GAME_MUSIC_PATH TEXT("./Assets/GameMusic.wav")
 
+#define GAME_EXPLOSION_PATH TEXT("./Assets/explosion.ani")
+#define GAME_EXPLOSION_FRAMES 12
+//6 Jiffies == 100 ms
+#define GAME_EXPLOSION_ANIMATION_TIME -1000000LL
+
 //Game Barrier Indicator
 #define GAME_BARRIER_INDICATOR_X 260
 #define GAME_BARRIER_INDICATOR_Y 105
