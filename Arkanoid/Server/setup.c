@@ -159,6 +159,8 @@ int setupInitialGameConfigs(TCHAR* filename[_MAX_FNAME], GameConfigs* gameConfig
 			case 7:
 				gameConfigs->movementSpeed = value;
 				break;
+			case 8:
+				gameConfigs->bricksMovementTime = value;
 		}
 	}
 
@@ -172,7 +174,7 @@ int setupInitialGameConfigs(TCHAR* filename[_MAX_FNAME], GameConfigs* gameConfig
 	_tprintf(TEXT("Levels: %d\nMax Bonus: %d\n"), gameConfigs->levels, gameConfigs->maxBonus);
 	_tprintf(TEXT("Bonus Duration: %d\nBonus Probability: %d\n"), gameConfigs->bonusDuration, gameConfigs->bonusProbability);
 	_tprintf(TEXT("Initial Lives: %d\nNumber of bricks: %d\n"), gameConfigs->initialLives, gameConfigs->numBricks);
-	_tprintf(TEXT("Movement Speed: %d\n\n"), gameConfigs->movementSpeed);
+	_tprintf(TEXT("Movement Speed: %d\nBricks Movement Time: %d\n\n"), gameConfigs->movementSpeed, gameConfigs->bricksMovementTime);
 
 	return 1;
 }

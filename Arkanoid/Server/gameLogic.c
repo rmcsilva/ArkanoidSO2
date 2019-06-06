@@ -57,6 +57,12 @@ DWORD WINAPI GameLogic(LPVOID lpParam)
 		0,							// use default creation flags 
 		&dwBonusThreadID);			// returns the thread identifier 
 
+	if (hBonusThread == NULL)
+	{
+		_tprintf(TEXT("\nError creating bonus thread!\n\n"));
+		ExitProcess(3);
+	}
+
 	while (pGameData->gameStatus != GAME_OVER)
 	{
 		// Set a timer to wait.
@@ -149,7 +155,14 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 		BonusDuration,				// thread function name
 		(LPVOID)pGameVariables,		// argument to thread function 
 		0,							// use default creation flags 
-		&hBonusDurationThreadID);	// returns the thread identifier 
+		&hBonusDurationThreadID);	// returns the thread identifier
+
+
+	if (hBonusDurationThread == NULL)
+	{
+		_tprintf(TEXT("\nError creating bonus duration thread!\n\n"));
+		ExitProcess(3);
+	}
 
 	//Thread to handle the bricks movement logic
 	hBrickMovementThread = CreateThread(
@@ -159,6 +172,12 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 		(LPVOID)pGameVariables,		// argument to thread function 
 		0,							// use default creation flags 
 		&hBrickMovementThreadID);	// returns the thread identifier 
+
+	if (hBrickMovementThread == NULL)
+	{
+		_tprintf(TEXT("\nError creating brick movement thread!\n\n"));
+		ExitProcess(3);
+	}
 
 	while (pGameData->gameStatus != GAME_OVER)
 	{
@@ -195,7 +214,6 @@ DWORD WINAPI BonusLogic(LPVOID lpParam)
 						{
 							switch (pGameData->bonus[i].type)
 							{
-								//TODO: Add more bonus types
 								case BONUS_SPEED_UP:
 									if (ballBonusIncrease(pGameData) == TRUE)
 									{
@@ -384,7 +402,7 @@ DWORD WINAPI BricksMovementLogic(LPVOID lpParam)
 
 	int movementSpeed = pGameVariables->gameConfigs.movementSpeed;
 
-	timeToWait.QuadPart = _100MILLISECONDS * 10;
+	timeToWait.QuadPart = _100MILLISECONDS * pGameVariables->gameConfigs.bricksMovementTime;
 
 	// Create an unnamed waitable timer for the bonus movement.
 	hBrickMovementWait = CreateWaitableTimer(NULL, TRUE, NULL);

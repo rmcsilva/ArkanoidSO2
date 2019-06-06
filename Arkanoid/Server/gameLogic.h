@@ -35,6 +35,7 @@ typedef struct GameConfigs {
 	int initialLives;
 	int numBricks;
 	int movementSpeed;
+	int bricksMovementTime;
 }GameConfigs;
 
 typedef struct GameVariables {

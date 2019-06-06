@@ -9,7 +9,7 @@
 #include <aclapi.h>
 
 //Number of total configurations in the configs file
-#define TOTAL_CONFIGS 8
+#define TOTAL_CONFIGS 9
 
 //Shared Memory
 void createClientsSharedMemory(HANDLE* hClientRequestMemoryMap, DWORD clientRequestsSize);

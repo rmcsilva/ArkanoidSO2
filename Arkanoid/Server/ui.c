@@ -80,14 +80,6 @@ void showConnectedUsers(Player* users, int connectedUsers)
 
 	for(int i=0; i < connectedUsers; i++)
 	{
-		_tprintf(TEXT("Username: %s\nId: %d\n"), users[i].username, users[i].id);
-		if(users[i].inGame == TRUE)
-		{
-			_tprintf(TEXT("User is in game!\n"));
-			_tprintf(TEXT("Score: %d\n"), users[i].score);
-		} else
-		{
-			_tprintf(TEXT("User is not in game!\n\n"));
-		}		
+		_tprintf(TEXT("Username: %s\nId: %d\n"), users[i].username, users[i].id);	
 	}
 }

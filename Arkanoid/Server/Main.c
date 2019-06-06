@@ -226,7 +226,6 @@ int _tmain(int argc, TCHAR* argv[])
 
 	do
 	{
-		//TODO: Send the game status to change menu accordingly
 		option = initialMenu(pGameDataMemory->gameStatus);
 
 		switch (option)
@@ -256,7 +255,15 @@ int _tmain(int argc, TCHAR* argv[])
 							GameLogic,					// thread function name
 							(LPVOID)&gameVariables,		// argument to thread function 
 							0,							// use default creation flags 
-							&dwGameThreadId);			// returns the thread identifier 
+							&dwGameThreadId);			// returns the thread identifier
+
+						if (hGameThread == NULL)
+						{
+							_tprintf(TEXT("\nError creating game thread!\n\n"));
+							ExitProcess(3);
+						}
+
+						pGameDataMemory->gameStatus = GAME_ACTIVE;
 					} else
 					{
 						_tprintf(TEXT("\nCannot start a game without players!\n\n"));
@@ -265,9 +272,7 @@ int _tmain(int argc, TCHAR* argv[])
 				} else
 				{
 					pGameDataMemory->gameStatus = GAME_OVER;
-					//TODO: Update user status
 					WaitForSingleObject(hGameThread, INFINITE);
-					sendGameUpdate(gameVariables);
 				}
 				break;
 			case SHOW_TOP10:
