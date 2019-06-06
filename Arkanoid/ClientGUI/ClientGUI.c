@@ -459,7 +459,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 DWORD WINAPI GameUpdate(LPVOID lpParam)
 {
-	int status;
+	int gameStatus, gameLevel = UNDEFINED_ID;
 
 	while (shutdown == FALSE)
 	{
@@ -468,18 +468,18 @@ DWORD WINAPI GameUpdate(LPVOID lpParam)
 			__try
 			{
 				gameData = receiveBroadcast();
-				status = gameData.gameStatus;
+				gameStatus = gameData.gameStatus;
 			}
 			__except (filter(GetExceptionCode()))
 			{
 				return -1;
 			}
 
-			if (status == GAME_OVER)
+			if (gameStatus == GAME_OVER)
 			{
 				break;
 			}
-			else if (status == LOGOUT)
+			else if (gameStatus == LOGOUT)
 			{
 				inGame = FALSE;
 				shutdown = TRUE;
@@ -487,9 +487,9 @@ DWORD WINAPI GameUpdate(LPVOID lpParam)
 				return -1;
 			}
 
-			if(playerIndex == UNDEFINED_ID)
+			if(playerIndex == UNDEFINED_ID && gameLevel == UNDEFINED_ID)
 			{
-				//Initilize player index
+				//Initialize player index
 				for (int i = 0; i < gameData.numPlayers; i++)
 				{
 					if (gameData.player[i].id == id)
@@ -498,34 +498,43 @@ DWORD WINAPI GameUpdate(LPVOID lpParam)
 						break;
 					}
 				}
-
-				//Initilize bricks resistance
-				for(int i = 0; i < gameData.numBricks; i++)
-				{
-					bricksResistance[i] = gameData.brick[i].resistance;
-				}
 			}
+
 			inGame = TRUE;
 
-			//Check if bricks resistance changed
-			for(int i = 0, j = 0; j < gameData.numBricks; i++)
+			//Check if game changed level 
+			if (gameLevel != gameData.level || gameLevel == UNDEFINED_ID)
 			{
-				if (gameData.brick[i].resistance != bricksResistance[i])
+				//Initialize game level
+				gameLevel = gameData.level;
+
+				//Initialize bricks resistance
+				for (int i = 0; i < gameData.numBricks; i++)
 				{
 					bricksResistance[i] = gameData.brick[i].resistance;
-
-					hExplosionAnimationThread = CreateThread(
-						NULL,							// default security attributes
-						0,								// use default stack size  
-						ExplosionAnimation,				// thread function name
-						&gameData.brick[i],				// argument to thread function 
-						0,								// use default creation flags 
-						&dwExplosionAnimationThreadId);	// returns the thread identifier
 				}
-
-				if(gameData.brick[i].resistance != 0)
+			} else
+			{
+				//Check if bricks resistance changed
+				for (int i = 0, j = 0; j < gameData.numBricks; i++)
 				{
-					j++;
+					if (gameData.brick[i].resistance != bricksResistance[i])
+					{
+						bricksResistance[i] = gameData.brick[i].resistance;
+
+						hExplosionAnimationThread = CreateThread(
+							NULL,							// default security attributes
+							0,								// use default stack size  
+							ExplosionAnimation,				// thread function name
+							&gameData.brick[i],				// argument to thread function 
+							0,								// use default creation flags 
+							&dwExplosionAnimationThreadId);	// returns the thread identifier
+					}
+
+					if (gameData.brick[i].resistance != 0)
+					{
+						j++;
+					}
 				}
 			}
 
@@ -534,6 +543,7 @@ DWORD WINAPI GameUpdate(LPVOID lpParam)
 
 		inGame = FALSE;
 		playerIndex = UNDEFINED_ID;
+		gameLevel = UNDEFINED_ID;
 
 		InvalidateRect(gHwnd, NULL, TRUE);
 
@@ -575,7 +585,7 @@ DWORD WINAPI ExplosionAnimation(LPVOID lpParam)
 
 		InvalidateRect(gHwnd, NULL, TRUE);
 
-		// Set a timer to wait.
+		// Set a timer to wait until the next frame.
 		if (!SetWaitableTimer(hExplosionAnimationTimer, &timeToWait, 0, NULL, NULL, 0))
 		{
 			_tprintf(TEXT("SetWaitableTimer failed (%d)\n"), GetLastError());
@@ -722,13 +732,16 @@ void drawGame(GameData gameData)
 	}
 
 	//Draw score
-	SelectObject(hMemDC, hScoreFont);
-	SetTextColor(hMemDC, RGB(255, 255, 255));
-	SetBkMode(hMemDC, TRANSPARENT);
-	TCHAR score[12];
-	_stprintf_s(score, 12, TEXT("%d"), gameData.player[playerIndex].score);
-	DrawText(hMemDC, &score, -1, &scoreBox, DT_CENTER);
-		
+	if (playerIndex != UNDEFINED_ID)
+	{
+		SelectObject(hMemDC, hScoreFont);
+		SetTextColor(hMemDC, RGB(255, 255, 255));
+		SetBkMode(hMemDC, TRANSPARENT);
+		TCHAR score[12];
+		_stprintf_s(score, 12, TEXT("%d"), gameData.player[playerIndex].score);
+		DrawText(hMemDC, &score, -1, &scoreBox, DT_CENTER);
+	}
+
 	SelectObject(hMemDC, hTempDC);
 	DeleteDC(hTempDC);
 }
