@@ -370,7 +370,13 @@ DWORD WINAPI ClientRequestsNamedPipe(LPVOID lpParam)
 				case CONNECTING_STATE:
 					if (!fSuccess)
 					{
-						_tprintf(TEXT("Pipe Connecting State -> Error %d.\n"), GetLastError());
+						DWORD error = GetLastError();
+						//If operation is not done yet keep trying
+						if(error == ERROR_IO_INCOMPLETE)
+						{
+							continue;
+						}
+						_tprintf(TEXT("Pipe Connecting State -> Error %d.\n"), error);
 						return 0;
 					}
 					namedPipesData[i].dwStateRequests = READING_REQUEST_STATE;
@@ -482,7 +488,13 @@ DWORD WINAPI GameUpdateNamedPipe(LPVOID lpParam)
 				case CONNECTING_STATE:
 					if (!fSuccess)
 					{
-						_tprintf(TEXT("Pipe Connecting State -> Error %d.\n"), GetLastError());
+						DWORD error = GetLastError();
+						//If operation is not done yet keep trying
+						if (error == ERROR_IO_INCOMPLETE)
+						{
+							continue;
+						}
+						_tprintf(TEXT("Game Pipe Connecting State -> Error %d.\n"), error);
 						return 0;
 					}
 					namedPipesData[i].dwStateGame = WRITING_GAME_STATE;
