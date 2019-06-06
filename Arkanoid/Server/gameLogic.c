@@ -716,8 +716,19 @@ void detectBallCollision(GameVariables* pGameVariables, int index)
 		{
 			pGameData->lives--;
 			ball->inPlay = TRUE;
-		}
-		else
+
+			//Invalidate all bonus that were caught
+			WaitForSingleObject(hBonusMutex, INFINITE);
+			for(int i = 0; i < MAX_BONUS; i++)
+			{
+				if (pGameData->bonus[i].status == BONUS_CAUGHT)
+				{
+					pGameData->bonus[i].status = BONUS_INACTIVE;
+					pGameData->numBonus--;
+				}
+			}
+			ReleaseMutex(hBonusMutex);
+		} else
 		{
 			pGameData->numBalls--;
 		}
