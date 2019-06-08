@@ -1,8 +1,9 @@
 maxPlayers:5;
-numLevels:1;
+numLevels:5;
 numBonus:10;
-bonusDuration:10000;
-bonusProbability:50;
+bonusDuration:30;
+bonusProbability:25;
 initialLives:3;
-numBricks:100;
-movementSpeed:1;
+numBricks:91;
+movementSpeed:2;
+bricksMovementTime:10;
