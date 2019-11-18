@@ -32,7 +32,7 @@ At this point you can wait for server to start the game or you can:
  
  You can move the paddle around with your mouse using a constant circle motion to the place you want to go. Or you can use the keys you choose on the settings page or the default ones (A -> Move Left, D -> Move Right)
  
- All you need to do now is enjoy the game!
+ All you need to do now is enjoy the game and smash that highscore!
  
  ### Server
  The server is the brains behind the game and it handles everything from the client connection and requests to the game logic.
